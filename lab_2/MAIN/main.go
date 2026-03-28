@@ -13,16 +13,13 @@ func main() {
 
 	var name string
 
-	fmt.Print("ip: ")
-
+	fmt.Printf("| ADRR | ")
 	fmt.Scanln(&ip)
 
-	fmt.Print("port: ")
-
+	fmt.Printf("| PORT | ")
 	fmt.Scanln(&port)
 
-	fmt.Print("name: ")
-
+	fmt.Printf("| NAME | ")
 	fmt.Scanln(&name)
 
 	CHAT.StartUdp(ip, port, name)
