@@ -64,11 +64,11 @@ func runServer() {
 			name, _ := reader.ReadString('\n')
 			name = strings.TrimSpace(name)
 
+			sendHistory(conn)
+
 			clients = append(clients, Client{Name: name, Conn: conn})
 			addMessage("", name+" (JOIN)", true)
 			broadcast(fmt.Sprintf("[%s] <SYSTEM> %s (JOIN)", getTime(), name))
-
-			sendHistory(conn)
 
 			go func(c Client) {
 				defer func() {
