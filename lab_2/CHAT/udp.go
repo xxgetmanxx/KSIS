@@ -9,7 +9,7 @@ func StartUdp(ip string, port int, name string) {
 
 	go listenUdp()
 
-	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:9999")
+	addr, _ := net.ResolveUDPAddr("udp", "255.255.255.255:19999")
 
 	conn, _ := net.DialUDP("udp", nil, addr)
 
@@ -21,7 +21,7 @@ func StartUdp(ip string, port int, name string) {
 
 func listenUdp() {
 
-	addr, _ := net.ResolveUDPAddr("udp", ":9999")
+	addr, _ := net.ResolveUDPAddr("udp", ":19999")
 
 	conn, _ := net.ListenUDP("udp", addr)
 

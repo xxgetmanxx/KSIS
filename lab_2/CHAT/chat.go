@@ -2,6 +2,7 @@ package CHAT
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 )
 
@@ -11,6 +12,7 @@ func RunChat(name string) {
 
 	for {
 
+		fmt.Print("| TEXT | ")
 		text, _ := reader.ReadString('\n')
 
 		msg := makeMsg(msgText, name+": "+text)
