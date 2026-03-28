@@ -49,15 +49,9 @@ func sendHistory(conn net.Conn) {
 }
 
 func runServer() {
-	fmt.Print("[ADDRESS] ")
-	var addr string
-	fmt.Scanln(&addr)
+	addr := "127.0.0.1:5000"
 
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		fmt.Println("[ERROR]", err)
-		return
-	}
+	ln, _ := net.Listen("tcp", addr)
 	defer ln.Close()
 
 	go func() {
@@ -102,27 +96,38 @@ func runServer() {
 		}
 	}()
 
+	fmt.Printf("[ADDRESS] %s\n", addr)
+	fmt.Printf("[CLIENTS] %d\n", len(clients))
+	fmt.Printf("[HISTORY] %d\n", len(history))
+
 	for {
 		time.Sleep(1 * time.Second)
-		fmt.Printf("\r[SERVER] [ADDRESS] %s [CLIENTS] %d [HISTORY] %d", addr, len(clients), len(history))
+		fmt.Printf("\033[3A\033[K")
+		fmt.Printf("[ADDRESS] %s\n\033[K", addr)
+		fmt.Printf("[CLIENTS] %d\n\033[K", len(clients))
+		fmt.Printf("[HISTORY] %d\n\033[K", len(history))
 	}
 }
 
 func runClient() {
-	fmt.Print("[ADDRESS] ")
+	fmt.Print("[SERV] ")
+	var serv string
+	fmt.Scanln(&serv)
+
+	fmt.Print("[ADDR] ")
 	var addr string
 	fmt.Scanln(&addr)
-
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		fmt.Println("[ERROR]", err)
-		return
-	}
-	defer conn.Close()
 
 	fmt.Print("[NAME] ")
 	var name string
 	fmt.Scanln(&name)
+
+	ln, _ := net.Listen("tcp", addr)
+	defer ln.Close()
+
+	conn, _ := net.Dial("tcp", serv)
+	defer conn.Close()
+
 	conn.Write([]byte(name + "\n"))
 
 	done := make(chan bool)
