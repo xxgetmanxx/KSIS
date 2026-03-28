@@ -110,17 +110,19 @@ func runServer() {
 }
 
 func runClient() {
+	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Print("[SERV] ")
-	var serv string
-	fmt.Scanln(&serv)
+	serv, _ := reader.ReadString('\n')
+	serv = strings.TrimSpace(serv)
 
 	fmt.Print("[ADDR] ")
-	var addr string
-	fmt.Scanln(&addr)
+	addr, _ := reader.ReadString('\n')
+	addr = strings.TrimSpace(addr)
 
 	fmt.Print("[NAME] ")
-	var name string
-	fmt.Scanln(&name)
+	name, _ := reader.ReadString('\n')
+	name = strings.TrimSpace(name)
 
 	ln, _ := net.Listen("tcp", addr)
 	defer ln.Close()
@@ -133,9 +135,9 @@ func runClient() {
 	done := make(chan bool)
 
 	go func() {
-		reader := bufio.NewReader(os.Stdin)
+		r := bufio.NewReader(os.Stdin)
 		for {
-			msg, _ := reader.ReadString('\n')
+			msg, _ := r.ReadString('\n')
 			msg = strings.TrimSpace(msg)
 			if msg != "" {
 				conn.Write([]byte(msg + "\n"))
@@ -144,14 +146,14 @@ func runClient() {
 	}()
 
 	go func() {
-		reader := bufio.NewReader(conn)
+		r := bufio.NewReader(conn)
 		for {
-			msg, err := reader.ReadString('\n')
+			msg, err := r.ReadString('\n')
 			if err != nil {
 				done <- true
 				return
 			}
-			fmt.Println(msg)
+			fmt.Println(strings.TrimSpace(msg))
 		}
 	}()
 
@@ -161,10 +163,12 @@ func runClient() {
 func main() {
 	fmt.Println("[SERVER] 0")
 	fmt.Println("[CLIENT] 1")
-	var choice int
-	fmt.Scan(&choice)
+	
+	reader := bufio.NewReader(os.Stdin)
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
 
-	if choice == 0 {
+	if choice == "0" {
 		runServer()
 	} else {
 		runClient()
