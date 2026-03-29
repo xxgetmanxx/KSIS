@@ -1,249 +1,237 @@
 package main
 
 import (
-	"bufio"
-	"fmt"
-	"net"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
+  "bytes"
+  "encoding/binary"
+  "flag"
+  "fmt"
+  "net"
+  "os"
+  "syscall"
+  "time"
 )
 
-const (
-	MsgText   = 0x01
-	MsgSystem = 0x02
-	MsgExit   = 0x03
-)
-
-type Message struct {
-	Time     string
-	Sender   string
-	Text     string
-	IsSystem bool
+type ICMPHeader struct {
+  Type     uint8  // 1 байт 
+  Code     uint8  // 1 байт 
+  Checksum uint16 // 2 байт 
+  ID       uint16 // 2 байт 
+  Seq      uint16 // 2 байт 
 }
 
-type Client struct {
-	Name string
-	Conn net.Conn
-}
+func calculateChecksum(data []byte) uint16 {
+ 
+  var sum uint32
 
-var history []Message
-var clients []Client
-var stopServer = make(chan bool)
+  for i := 0; i < len(data)-1; i += 2 {
 
-func getTime() string {
-	return time.Now().Format("15:04:05")
-}
+    sum += uint32(binary.BigEndian.Uint16(data[i : i+2]))
 
-func addMessage(sender, text string, isSystem bool) {
-	history = append(history, Message{Time: getTime(), Sender: sender, Text: text, IsSystem: isSystem})
-}
+  }
 
-func writeMessage(conn net.Conn, msgType byte, data string) {
-	length := len(data)
-	if length > 255 {
-		length = 255
-	}
-	conn.Write([]byte{msgType, byte(length)})
-	conn.Write([]byte(data[:length]))
-}
+  if len(data)%2 != 0 {
+    
+    sum += uint32(data[len(data)-1]) << 8
 
-func readMessage(conn net.Conn) (byte, string, error) {
-	header := make([]byte, 2)
-	_, err := conn.Read(header)
-	if err != nil {
-		return 0, "", err
-	}
-	msgType := header[0]
-	length := header[1]
-	if length == 0 {
-		return msgType, "", nil
-	}
-	data := make([]byte, length)
-	_, err = conn.Read(data)
-	if err != nil {
-		return msgType, "", err
-	}
-	return msgType, string(data), nil
-}
+  }
 
-func broadcast(msgType byte, data string) {
-	for _, c := range clients {
-		writeMessage(c.Conn, msgType, data)
-	}
-}
+  for sum > 0xffff {
 
-func sendHistory(conn net.Conn) {
-	for _, m := range history {
-		var data string
-		if m.IsSystem {
-			data = fmt.Sprintf("[%s] <SYSTEM> %s", m.Time, m.Text)
-		} else {
-			data = fmt.Sprintf("[%s] <%s> %s", m.Time, m.Sender, m.Text)
-		}
-		writeMessage(conn, MsgSystem, data)
-	}
-}
+    sum = (sum >> 16) + (sum & 0xffff)
 
-func runServer() {
-	reader := bufio.NewReader(os.Stdin)
+  }
 
-	fmt.Print("[ADDRESS] ")
-	addr, _ := reader.ReadString('\n')
-	addr = strings.TrimSpace(addr)
-
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		fmt.Printf("Error: port %s \n", addr)
-		os.Exit(1)
-	}
-	defer ln.Close()
-
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		for _, c := range clients {
-			c.Conn.Close()
-		}
-		stopServer <- true
-	}()
-
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				continue
-			}
-			_, name, _ := readMessage(conn)
-
-			sendHistory(conn)
-
-			clients = append(clients, Client{Name: name, Conn: conn})
-			addMessage("", name+" (JOIN)", true)
-			broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (JOIN)", getTime(), name))
-
-			go func(c Client) {
-				defer func() {
-					c.Conn.Close()
-					for i, cl := range clients {
-						if cl.Name == c.Name {
-							clients = append(clients[:i], clients[i+1:]...)
-							break
-						}
-					}
-					addMessage("", c.Name+" (LEFT)", true)
-					broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (LEFT)", getTime(), c.Name))
-				}()
-				for {
-					msgType, data, err := readMessage(conn)
-					if err != nil {
-						return
-					}
-					if msgType == MsgExit {
-						// Отправляем подтверждение перед закрытием
-						writeMessage(c.Conn, MsgSystem, "[SERVER] Goodbye")
-						return
-					}
-					if msgType == MsgText && data != "" {
-						addMessage(c.Name, data, false)
-						broadcast(MsgText, fmt.Sprintf("[%s] <%s> %s", getTime(), c.Name, data))
-					}
-				}
-			}(clients[len(clients)-1])
-		}
-	}()
-
-	fmt.Printf("[CLIENTS] %d\n", len(clients))
-	fmt.Printf("[HISTORY] %d\n", len(history))
-
-	for {
-		select {
-		case <-stopServer:
-			fmt.Println("\n[SERVER] Shutdown complete")
-			return
-		case <-time.After(1 * time.Second):
-			fmt.Printf("\033[2A\033[K")
-			fmt.Printf("[CLIENTS] %d\n\033[K", len(clients))
-			fmt.Printf("[HISTORY] %d\n\033[K", len(history))
-		}
-	}
-}
-
-func runClient() {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("[ADDRESS] ")
-	addr, _ := reader.ReadString('\n')
-	addr = strings.TrimSpace(addr)
-
-	fmt.Print("[NAME] ")
-	name, _ := reader.ReadString('\n')
-	name = strings.TrimSpace(name)
-
-	conn, _ := net.Dial("tcp", addr)
-
-	header := make([]byte, 2)
-	header[0] = MsgText
-	header[1] = byte(len(name))
-	conn.Write(header)
-	conn.Write([]byte(name))
-
-	done := make(chan bool)
-
-	// Обработка Ctrl+C - только отправка Exit, без Close
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
-		conn.Write([]byte{MsgExit, 0})
-		// Не закрываем соединение - пусть сервер закроет
-	}()
-
-	go func() {
-		r := bufio.NewReader(os.Stdin)
-		for {
-			msg, _ := r.ReadString('\n')
-			msg = strings.TrimSpace(msg)
-			if msg == "/quit" {
-				conn.Write([]byte{MsgExit, 0})
-				// Не закрываем соединение - пусть сервер закроет
-				continue
-			}
-			if msg != "" {
-				writeMessage(conn, MsgText, msg)
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			_, data, err := readMessage(conn)
-			if err != nil {
-				done <- true
-				return
-			}
-			fmt.Println(data)
-		}
-	}()
-
-	<-done
-	conn.Close() // Закрываем только после того как сервер разорвал соединение
+  return uint16(^sum)
+  
 }
 
 func main() {
-	fmt.Println("[SERVER] 0")
-	fmt.Println("[CLIENT] 1")
 
-	reader := bufio.NewReader(os.Stdin)
-	choice, _ := reader.ReadString('\n')
-	choice = strings.TrimSpace(choice)
+  dnsFlag := flag.Bool("dns", false, "")
 
-	if choice == "0" {
-		runServer()
-	} else {
-		runClient()
-	}
+  flag.Parse()
+
+  args := flag.Args()
+
+  if len(args) < 1 {
+
+    return
+
+  }
+
+  target := args[0]
+
+  addrs, err := net.LookupIP(target)
+
+  if err != nil {
+
+    return
+    
+  }
+
+  destIP := addrs[0]
+
+  line := "+-------+---------+---------+---------+-----------------+------------+------------+------------------+----------------------------------------------+"
+  fmt.Println(line)
+  fmt.Printf("| %-5s | %-7s | %-7s | %-7s | %-15s | %-10s | %-10s | %-16s | %-44s |\n", "TTL_0", "RTT_1", "RTT_2", "RTT_3", "Address", "Checksum", "Sequence", "Status", "Host")
+  fmt.Println(line)
+
+  startTrace(destIP, *dnsFlag, line)
+}
+
+func startTrace(destIP net.IP, useDNS bool, line string) {
+
+    fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_ICMP)
+    
+    if err != nil {
+
+        return
+
+    }
+
+    defer syscall.Close(fd)
+
+    tv := syscall.Timeval{Sec: 1, Usec: 500000}
+
+    syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, syscall.SO_RCVTIMEO, &tv)
+
+    myID := uint16(os.Getpid() & 0xffff)
+
+    displayIndex := 1
+
+    for ttl := 1; ttl <= 30; ttl++ {
+
+        syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_TTL, ttl)
+        
+        var rtts         [3]string
+        var lastIP       string
+        var lastChecksum uint16
+        var lastSeq      uint16
+        var reached      bool
+
+        for i := 0; i < 3; i++ {
+            
+            seq := uint16(ttl*100 + i)
+
+            start := time.Now()
+
+            ip, icmpType, checksum, err := sendEcho(fd, destIP, myID, seq)
+
+            duration := time.Since(start)
+
+            if err != nil {
+
+                rtts[i] = "*"
+
+            } else {
+
+                rtts[i] = fmt.Sprintf("%dms", duration.Milliseconds())
+
+                lastIP = ip
+
+                lastChecksum = checksum
+
+                lastSeq = seq
+
+                if icmpType == 0 { reached = true }
+
+            }
+
+        }
+
+        if ttl == 1 {
+
+            continue 
+
+        }
+
+        status := "Time Exceeded"
+
+        if reached { 
+
+          status = "Echo Reply" 
+
+        }
+
+        if lastIP == "" { 
+          
+          status = "Timed Out" 
+        
+        }
+
+        host := ""
+
+        if useDNS && lastIP != "" {
+
+            names, _ := net.LookupAddr(lastIP) // Pointer Record - запрос
+
+            if len(names) > 0 { 
+              
+              host = names[0] 
+            
+            }
+
+        }
+
+        beSeq := lastSeq
+
+        leSeq := ((lastSeq & 0xFF) << 8) | ((lastSeq & 0xFF00) >> 8)
+
+        wiresharkSeq := fmt.Sprintf("%d/%d", beSeq, leSeq)
+
+        fmt.Printf("| %-5d | %-7s | %-7s | %-7s | %-15s | 0x%04x     | %-10s | %-16s | %-44s |\n", displayIndex, rtts[0], rtts[1], rtts[2], lastIP, lastChecksum, wiresharkSeq, status, host)
+        
+        fmt.Println(line)
+
+        displayIndex++
+
+        if reached { break }
+
+    }
+
+}
+
+func sendEcho(fd int, destIP net.IP, id, seq uint16) (string, uint8, uint16, error) {
+
+  header := ICMPHeader{Type: 8, Code: 0, ID: id, Seq: seq}
+
+  var buf bytes.Buffer
+
+  binary.Write(&buf, binary.BigEndian, header)
+
+  header.Checksum = calculateChecksum(buf.Bytes())
+
+  finalChecksum := header.Checksum
+
+  buf.Reset()
+
+  binary.Write(&buf, binary.BigEndian, header)
+
+  dst := &syscall.SockaddrInet4{Port: 0}
+
+  copy(dst.Addr[:], destIP.To4()) 
+
+  // Вызов Sendto отправляет байты через дескриптор сокета fd
+  if err := syscall.Sendto(fd, buf.Bytes(), 0, dst); err != nil {
+
+    return "", 0, 0, err
+
+  }
+
+  reply := make([]byte, 1500)
+
+  // Ждем получения данных
+  _, from, err := syscall.Recvfrom(fd, reply, 0)
+
+  if err != nil {
+
+    return "", 0, 0, err
+
+  }
+
+  // Достаем IP адрес отправителя из структуры 'from'.
+  nodeIP := net.IP(from.(*syscall.SockaddrInet4).Addr[:]).String()
+
+  return nodeIP, reply[20], finalChecksum, nil
+
 }
