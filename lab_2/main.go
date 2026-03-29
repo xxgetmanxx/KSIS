@@ -14,6 +14,7 @@ import (
 const (
 	MsgText   = 0x01
 	MsgSystem = 0x02
+	MsgExit   = 0x03
 )
 
 type Message struct {
@@ -141,6 +142,9 @@ func runServer() {
 					if err != nil {
 						return
 					}
+					if msgType == MsgExit {
+						return
+					}
 					if msgType == MsgText && data != "" {
 						addMessage(c.Name, data, false)
 						broadcast(MsgText, fmt.Sprintf("[%s] <%s> %s", getTime(), c.Name, data))
@@ -187,11 +191,29 @@ func runClient() {
 
 	done := make(chan bool)
 
+	// Обработка Ctrl+C - отправка Exit перед закрытием
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+		conn.Write([]byte{MsgExit, 0})
+		time.Sleep(50 * time.Millisecond)
+		conn.Close()
+		done <- true
+	}()
+
 	go func() {
 		r := bufio.NewReader(os.Stdin)
 		for {
 			msg, _ := r.ReadString('\n')
 			msg = strings.TrimSpace(msg)
+			if msg == "/quit" {
+				conn.Write([]byte{MsgExit, 0})
+				time.Sleep(50 * time.Millisecond)
+				conn.Close()
+				done <- true
+				return
+			}
 			if msg != "" {
 				writeMessage(conn, MsgText, msg)
 			}
@@ -210,7 +232,6 @@ func runClient() {
 	}()
 
 	<-done
-	conn.Close()
 }
 
 func main() {
