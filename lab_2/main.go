@@ -122,9 +122,7 @@ func runServer() {
 			if err != nil {
 				continue
 			}
-			reader := bufio.NewReader(conn)
-			name, _ := reader.ReadString('\n')
-			name = strings.TrimSpace(name)
+			_, name, _ := readMessage(conn)
 
 			sendHistory(conn)
 
