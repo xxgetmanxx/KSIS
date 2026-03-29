@@ -12,13 +12,11 @@ import (
 )
 
 const (
-	MsgText    = 0x01
-	MsgSystem  = 0x02
-	MsgHistory = 0x03
+	MsgText   = 0x01
+	MsgSystem = 0x02
 )
 
 type Message struct {
-	Type     byte
 	Time     string
 	Sender   string
 	Text     string
@@ -39,11 +37,7 @@ func getTime() string {
 }
 
 func addMessage(sender, text string, isSystem bool) {
-	msgType := byte(MsgText)
-	if isSystem {
-		msgType = byte(MsgSystem)
-	}
-	history = append(history, Message{Type: msgType, Time: getTime(), Sender: sender, Text: text, IsSystem: isSystem})
+	history = append(history, Message{Time: getTime(), Sender: sender, Text: text, IsSystem: isSystem})
 }
 
 func writeMessage(conn net.Conn, msgType byte, data string) {
@@ -88,7 +82,7 @@ func sendHistory(conn net.Conn) {
 		} else {
 			data = fmt.Sprintf("[%s] <%s> %s", m.Time, m.Sender, m.Text)
 		}
-		writeMessage(conn, MsgHistory, data)
+		writeMessage(conn, MsgSystem, data)
 	}
 }
 
@@ -206,14 +200,12 @@ func runClient() {
 
 	go func() {
 		for {
-			msgType, data, err := readMessage(conn)
+			_, data, err := readMessage(conn)
 			if err != nil {
 				done <- true
 				return
 			}
-			if msgType == MsgHistory || msgType == MsgText || msgType == MsgSystem {
-				fmt.Println(data)
-			}
+			fmt.Println(data)
 		}
 	}()
 
