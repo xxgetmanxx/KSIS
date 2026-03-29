@@ -49,9 +49,17 @@ func sendHistory(conn net.Conn) {
 }
 
 func runServer() {
-	addr := "127.0.0.1:5000"
+	reader := bufio.NewReader(os.Stdin)
 
-	ln, _ := net.Listen("tcp", addr)
+	fmt.Print("[ADDRESS] ")
+	addr, _ := reader.ReadString('\n')
+	addr = strings.TrimSpace(addr)
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Printf("Error: port %s is already in use\n", addr)
+		os.Exit(1)
+	}
 	defer ln.Close()
 
 	go func() {
@@ -96,14 +104,12 @@ func runServer() {
 		}
 	}()
 
-	fmt.Printf("[ADDRESS] %s\n", addr)
 	fmt.Printf("[CLIENTS] %d\n", len(clients))
 	fmt.Printf("[HISTORY] %d\n", len(history))
 
 	for {
 		time.Sleep(1 * time.Second)
-		fmt.Printf("\033[3A\033[K")
-		fmt.Printf("[ADDRESS] %s\n\033[K", addr)
+		fmt.Printf("\033[2A\033[K")
 		fmt.Printf("[CLIENTS] %d\n\033[K", len(clients))
 		fmt.Printf("[HISTORY] %d\n\033[K", len(history))
 	}
@@ -112,11 +118,7 @@ func runServer() {
 func runClient() {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("[SERV] ")
-	serv, _ := reader.ReadString('\n')
-	serv = strings.TrimSpace(serv)
-
-	fmt.Print("[ADDR] ")
+	fmt.Print("[ADDRESS] ")
 	addr, _ := reader.ReadString('\n')
 	addr = strings.TrimSpace(addr)
 
@@ -124,10 +126,7 @@ func runClient() {
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 
-	ln, _ := net.Listen("tcp", addr)
-	defer ln.Close()
-
-	conn, _ := net.Dial("tcp", serv)
+	conn, _ := net.Dial("tcp", addr)
 	defer conn.Close()
 
 	conn.Write([]byte(name + "\n"))
