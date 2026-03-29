@@ -96,7 +96,7 @@ func runServer() {
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		fmt.Printf("Error: port %s is already in use\n", addr)
+		fmt.Printf("Error: port %s \n", addr)
 		os.Exit(1)
 	}
 	defer ln.Close()
@@ -143,6 +143,8 @@ func runServer() {
 						return
 					}
 					if msgType == MsgExit {
+						// Отправляем подтверждение перед закрытием
+						writeMessage(c.Conn, MsgSystem, "[SERVER] Goodbye")
 						return
 					}
 					if msgType == MsgText && data != "" {
@@ -191,15 +193,13 @@ func runClient() {
 
 	done := make(chan bool)
 
-	// Обработка Ctrl+C - отправка Exit перед закрытием
+	// Обработка Ctrl+C - только отправка Exit, без Close
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 		conn.Write([]byte{MsgExit, 0})
-		time.Sleep(50 * time.Millisecond)
-		conn.Close()
-		done <- true
+		// Не закрываем соединение - пусть сервер закроет
 	}()
 
 	go func() {
@@ -209,10 +209,8 @@ func runClient() {
 			msg = strings.TrimSpace(msg)
 			if msg == "/quit" {
 				conn.Write([]byte{MsgExit, 0})
-				time.Sleep(50 * time.Millisecond)
-				conn.Close()
-				done <- true
-				return
+				// Не закрываем соединение - пусть сервер закроет
+				continue
 			}
 			if msg != "" {
 				writeMessage(conn, MsgText, msg)
@@ -232,6 +230,7 @@ func runClient() {
 	}()
 
 	<-done
+	conn.Close() // Закрываем только после того как сервер разорвал соединение
 }
 
 func main() {
