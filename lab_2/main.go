@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
+const (
+	MsgText    = 0x01
+	MsgSystem  = 0x02
+	MsgHistory = 0x03
+)
+
 type Message struct {
+	Type     byte
 	Time     string
 	Sender   string
 	Text     string
@@ -23,28 +32,63 @@ type Client struct {
 
 var history []Message
 var clients []Client
+var stopServer = make(chan bool)
 
 func getTime() string {
 	return time.Now().Format("15:04:05")
 }
 
 func addMessage(sender, text string, isSystem bool) {
-	history = append(history, Message{Time: getTime(), Sender: sender, Text: text, IsSystem: isSystem})
+	msgType := byte(MsgText)
+	if isSystem {
+		msgType = byte(MsgSystem)
+	}
+	history = append(history, Message{Type: msgType, Time: getTime(), Sender: sender, Text: text, IsSystem: isSystem})
 }
 
-func broadcast(msg string) {
+func writeMessage(conn net.Conn, msgType byte, data string) {
+	length := len(data)
+	if length > 255 {
+		length = 255
+	}
+	conn.Write([]byte{msgType, byte(length)})
+	conn.Write([]byte(data[:length]))
+}
+
+func readMessage(conn net.Conn) (byte, string, error) {
+	header := make([]byte, 2)
+	_, err := conn.Read(header)
+	if err != nil {
+		return 0, "", err
+	}
+	msgType := header[0]
+	length := header[1]
+	if length == 0 {
+		return msgType, "", nil
+	}
+	data := make([]byte, length)
+	_, err = conn.Read(data)
+	if err != nil {
+		return msgType, "", err
+	}
+	return msgType, string(data), nil
+}
+
+func broadcast(msgType byte, data string) {
 	for _, c := range clients {
-		c.Conn.Write([]byte(msg + "\n"))
+		writeMessage(c.Conn, msgType, data)
 	}
 }
 
 func sendHistory(conn net.Conn) {
 	for _, m := range history {
+		var data string
 		if m.IsSystem {
-			conn.Write([]byte(fmt.Sprintf("[%s] <SYSTEM> %s\n", m.Time, m.Text)))
+			data = fmt.Sprintf("[%s] <SYSTEM> %s", m.Time, m.Text)
 		} else {
-			conn.Write([]byte(fmt.Sprintf("[%s] <%s> %s\n", m.Time, m.Sender, m.Text)))
+			data = fmt.Sprintf("[%s] <%s> %s", m.Time, m.Sender, m.Text)
 		}
+		writeMessage(conn, MsgHistory, data)
 	}
 }
 
@@ -62,6 +106,16 @@ func runServer() {
 	}
 	defer ln.Close()
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		for _, c := range clients {
+			c.Conn.Close()
+		}
+		stopServer <- true
+	}()
+
 	go func() {
 		for {
 			conn, err := ln.Accept()
@@ -76,10 +130,11 @@ func runServer() {
 
 			clients = append(clients, Client{Name: name, Conn: conn})
 			addMessage("", name+" (JOIN)", true)
-			broadcast(fmt.Sprintf("[%s] <SYSTEM> %s (JOIN)", getTime(), name))
+			broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (JOIN)", getTime(), name))
 
 			go func(c Client) {
 				defer func() {
+					c.Conn.Close()
 					for i, cl := range clients {
 						if cl.Name == c.Name {
 							clients = append(clients[:i], clients[i+1:]...)
@@ -87,17 +142,16 @@ func runServer() {
 						}
 					}
 					addMessage("", c.Name+" (LEFT)", true)
-					broadcast(fmt.Sprintf("[%s] <SYSTEM> %s (LEFT)", getTime(), c.Name))
+					broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (LEFT)", getTime(), c.Name))
 				}()
 				for {
-					msg, err := reader.ReadString('\n')
+					msgType, data, err := readMessage(conn)
 					if err != nil {
 						return
 					}
-					msg = strings.TrimSpace(msg)
-					if msg != "" {
-						addMessage(c.Name, msg, false)
-						broadcast(fmt.Sprintf("[%s] <%s> %s", getTime(), c.Name, msg))
+					if msgType == MsgText && data != "" {
+						addMessage(c.Name, data, false)
+						broadcast(MsgText, fmt.Sprintf("[%s] <%s> %s", getTime(), c.Name, data))
 					}
 				}
 			}(clients[len(clients)-1])
@@ -108,10 +162,15 @@ func runServer() {
 	fmt.Printf("[HISTORY] %d\n", len(history))
 
 	for {
-		time.Sleep(1 * time.Second)
-		fmt.Printf("\033[2A\033[K")
-		fmt.Printf("[CLIENTS] %d\n\033[K", len(clients))
-		fmt.Printf("[HISTORY] %d\n\033[K", len(history))
+		select {
+		case <-stopServer:
+			fmt.Println("\n[SERVER] Shutdown complete")
+			return
+		case <-time.After(1 * time.Second):
+			fmt.Printf("\033[2A\033[K")
+			fmt.Printf("[CLIENTS] %d\n\033[K", len(clients))
+			fmt.Printf("[HISTORY] %d\n\033[K", len(history))
+		}
 	}
 }
 
@@ -127,9 +186,12 @@ func runClient() {
 	name = strings.TrimSpace(name)
 
 	conn, _ := net.Dial("tcp", addr)
-	defer conn.Close()
 
-	conn.Write([]byte(name + "\n"))
+	header := make([]byte, 2)
+	header[0] = MsgText
+	header[1] = byte(len(name))
+	conn.Write(header)
+	conn.Write([]byte(name))
 
 	done := make(chan bool)
 
@@ -139,30 +201,32 @@ func runClient() {
 			msg, _ := r.ReadString('\n')
 			msg = strings.TrimSpace(msg)
 			if msg != "" {
-				conn.Write([]byte(msg + "\n"))
+				writeMessage(conn, MsgText, msg)
 			}
 		}
 	}()
 
 	go func() {
-		r := bufio.NewReader(conn)
 		for {
-			msg, err := r.ReadString('\n')
+			msgType, data, err := readMessage(conn)
 			if err != nil {
 				done <- true
 				return
 			}
-			fmt.Println(strings.TrimSpace(msg))
+			if msgType == MsgHistory || msgType == MsgText || msgType == MsgSystem {
+				fmt.Println(data)
+			}
 		}
 	}()
 
 	<-done
+	conn.Close()
 }
 
 func main() {
 	fmt.Println("[SERVER] 0")
 	fmt.Println("[CLIENT] 1")
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	choice, _ := reader.ReadString('\n')
 	choice = strings.TrimSpace(choice)
