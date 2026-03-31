@@ -26,12 +26,14 @@ type Message struct {
 
 type Client struct {
 	Name string
-	Conn net.Conn
+	Conn net.Conn // TCP-соединение !!!
 }
 
 var history []Message
+
 var clients []Client
-var stopServer = make(chan bool)
+
+var stopServer = make(chan bool) // Канал для сигнала остановки сервера !!!
 
 func getTime() string {
 	return time.Now().Format("15:04:05")
@@ -46,8 +48,8 @@ func writeMessage(conn net.Conn, msgType byte, data string) {
 	if length > 255 {
 		length = 255
 	}
-	conn.Write([]byte{msgType, byte(length)})
-	conn.Write([]byte(data[:length]))
+	conn.Write([]byte{msgType, byte(length)}) // Заголовок: 2 байта
+	conn.Write([]byte(data[:length]))         // Данные: N байт
 }
 
 func readMessage(conn net.Conn) (byte, string, error) {
