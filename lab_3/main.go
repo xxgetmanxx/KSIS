@@ -26,14 +26,12 @@ type Message struct {
 
 type Client struct {
 	Name string
-	Conn net.Conn // TCP-соединение !!!
+	Conn net.Conn
 }
 
 var history []Message
-
 var clients []Client
-
-var stopServer = make(chan bool) // Канал для сигнала остановки сервера !!!
+var stopServer = make(chan bool)
 
 func getTime() string {
 	return time.Now().Format("15:04:05")
@@ -48,8 +46,8 @@ func writeMessage(conn net.Conn, msgType byte, data string) {
 	if length > 255 {
 		length = 255
 	}
-	conn.Write([]byte{msgType, byte(length)}) // Заголовок: 2 байта
-	conn.Write([]byte(data[:length]))         // Данные: N байт
+	conn.Write([]byte{msgType, byte(length)})
+	conn.Write([]byte(data[:length]))
 }
 
 func readMessage(conn net.Conn) (byte, string, error) {
@@ -145,7 +143,6 @@ func runServer() {
 						return
 					}
 					if msgType == MsgExit {
-						// Отправляем подтверждение перед закрытием
 						writeMessage(c.Conn, MsgSystem, "[SERVER] Goodbye")
 						return
 					}
@@ -177,15 +174,33 @@ func runServer() {
 func runClient() {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("[ADDRESS] ")
-	addr, _ := reader.ReadString('\n')
-	addr = strings.TrimSpace(addr)
+	// Адрес сервера (куда подключаться)
+	fmt.Print("[SERV] ")
+	serverAddr, _ := reader.ReadString('\n')
+	serverAddr = strings.TrimSpace(serverAddr)
+
+	// Свой IP (с какого адреса подключаться)
+	fmt.Print("[ADDR] ")
+	clientAddr, _ := reader.ReadString('\n')
+	clientAddr = strings.TrimSpace(clientAddr)
 
 	fmt.Print("[NAME] ")
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 
-	conn, _ := net.Dial("tcp", addr)
+	// Подключаемся с указанием своего локального адреса
+	localAddr, err := net.ResolveTCPAddr("tcp", clientAddr)
+	if err != nil {
+		fmt.Printf("Error client address: %v\n", err)
+		os.Exit(1)
+	}
+
+	dialer := net.Dialer{LocalAddr: localAddr}
+	conn, err := dialer.Dial("tcp", serverAddr)
+	if err != nil {
+		fmt.Printf("Error connect: %v\n", err)
+		os.Exit(1)
+	}
 
 	header := make([]byte, 2)
 	header[0] = MsgText
@@ -195,15 +210,15 @@ func runClient() {
 
 	done := make(chan bool)
 
-	// Обработка Ctrl+C - только отправка Exit, без Close
+	// Обработка Ctrl+C
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 		conn.Write([]byte{MsgExit, 0})
-		// Не закрываем соединение - пусть сервер закроет
 	}()
 
+	// Чтение ввода пользователя
 	go func() {
 		r := bufio.NewReader(os.Stdin)
 		for {
@@ -211,7 +226,6 @@ func runClient() {
 			msg = strings.TrimSpace(msg)
 			if msg == "/quit" {
 				conn.Write([]byte{MsgExit, 0})
-				// Не закрываем соединение - пусть сервер закроет
 				continue
 			}
 			if msg != "" {
@@ -220,6 +234,7 @@ func runClient() {
 		}
 	}()
 
+	// Чтение ответов от сервера
 	go func() {
 		for {
 			_, data, err := readMessage(conn)
@@ -232,7 +247,7 @@ func runClient() {
 	}()
 
 	<-done
-	conn.Close() // Закрываем только после того как сервер разорвал соединение
+	conn.Close()
 }
 
 func main() {
