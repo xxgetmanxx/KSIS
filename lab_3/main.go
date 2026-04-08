@@ -30,7 +30,9 @@ type Client struct {
 }
 
 var history []Message
+
 var clients []Client
+
 var stopServer = make(chan bool)
 
 func getTime() string {
