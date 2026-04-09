@@ -71,9 +71,11 @@ func readMessage(conn net.Conn) (byte, string, error) {
 	return msgType, string(data), nil
 }
 
-func broadcast(msgType byte, data string) {
+func broadcast(msgType byte, data string, exclude string) {
 	for _, c := range clients {
-		writeMessage(c.Conn, msgType, data)
+		if c.Name != exclude {
+			writeMessage(c.Conn, msgType, data)
+		}
 	}
 }
 
@@ -125,7 +127,7 @@ func runServer() {
 
 			clients = append(clients, Client{Name: name, Conn: conn})
 			addMessage("", name+" (JOIN)", true)
-			broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (JOIN)", getTime(), name))
+			broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (JOIN)", getTime(), name), name)
 
 			go func(c Client) {
 				defer func() {
@@ -137,7 +139,7 @@ func runServer() {
 						}
 					}
 					addMessage("", c.Name+" (LEFT)", true)
-					broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (LEFT)", getTime(), c.Name))
+					broadcast(MsgSystem, fmt.Sprintf("[%s] <SYSTEM> %s (LEFT)", getTime(), c.Name), c.Name)
 				}()
 				for {
 					msgType, data, err := readMessage(conn)
@@ -150,7 +152,7 @@ func runServer() {
 					}
 					if msgType == MsgText && data != "" {
 						addMessage(c.Name, data, false)
-						broadcast(MsgText, fmt.Sprintf("[%s] <%s> %s", getTime(), c.Name, data))
+						broadcast(MsgText, fmt.Sprintf("[%s] <%s> %s", getTime(), c.Name, data), c.Name)
 					}
 				}
 			}(clients[len(clients)-1])
