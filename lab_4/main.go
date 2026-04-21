@@ -113,7 +113,7 @@ func handleConnection(clientConn net.Conn) {
 
 	}
 
-	// Шаг_2
+	// Шаг_3
 
 	parsedURL, err := url.Parse(rawURL)
 
@@ -135,64 +135,92 @@ func handleConnection(clientConn net.Conn) {
 
 	targetAddress := host + ":" + port
 
-	// Шаг_3
+	// Шаг_4
 
 	if blacklist[host] {
-		log.Printf("[BLOCKED] URL: %s", rawURL)
+
+		log.Println("BLOCKED")
+
 		sendErrorPage(clientConn, host)
+
 		return
+
 	}
 
-	// Шаг 4: Формируем правильный URI (переделываем абсолютный URL в путь)
+	// Шаг_5
+
 	path := parsedURL.Path
+
 	if parsedURL.RawQuery != "" {
+
 		path += "?" + parsedURL.RawQuery
-	}
-	if path == "" {
-		path = "/"
+
 	}
 
-	// Шаг 5: Устанавливаем сокет-соединение с целевым сервером
-	targetConn, err := net.Dial("tcp", targetAddress)
-	if err != nil {
-		log.Printf("Не удалось подключиться к %s: %v", targetAddress, err)
-		return
+	if path == "" {
+
+		path = "/"
+
 	}
+
+	// Шаг_6
+
+	targetConn, err := net.Dial("tcp", targetAddress)
+
+	if err != nil {
+
+		log.Println("Не удалось подключиться")
+
+		return
+
+	}
+
 	defer targetConn.Close()
 
-	// Шаг 6: Отправляем целевому серверу модифицированную строку запроса
+	// Шаг_7
+
 	newReqLine := fmt.Sprintf("%s %s %s\r\n", method, path, proto)
+
 	targetConn.Write([]byte(newReqLine))
 
-	// Шаг 7: Асинхронно пересылаем оставшиеся заголовки и тело запроса от браузера к серверу
+	// Шаг_8
+
 	go io.Copy(targetConn, clientReader)
 
-	// Шаг 8: Читаем ответ от целевого сервера, чтобы залогировать статус-код
+	// Шаг_9
+
 	targetReader := bufio.NewReader(targetConn)
+
 	respLine, err := targetReader.ReadString('\n')
+
 	if err != nil {
+
 		return
+
 	}
 
-	// Парсим статус-код из ответа (например: HTTP/1.1 200 OK)
 	statusCode := "Unknown"
+
 	respParts := strings.SplitN(strings.TrimSpace(respLine), " ", 3)
+
 	if len(respParts) >= 2 {
+
 		statusCode = respParts[1]
+
 	}
 
-	// Журналирование проксируемых запросов по заданию
 	log.Printf("[PROXY] URL: %s | Code: %s\n", rawURL, statusCode)
 
-	// Отправляем первую строку ответа обратно клиенту
 	clientConn.Write([]byte(respLine))
 
-	// Шаг 9: Синхронно пересылаем оставшуюся часть ответа (заголовки и тело/аудиопоток) клиенту
+	// Шаг 10
+
 	io.Copy(clientConn, targetReader)
+
 }
 
-// Функция для отправки кастомной страницы ошибки
 func sendErrorPage(conn net.Conn, host string) {
+
 	html := fmt.Sprintf(`<html>
 <head><title>Access Denied</title></head>
 <body>
@@ -208,4 +236,5 @@ func sendErrorPage(conn net.Conn, host string) {
 		"%s", len(html), html)
 
 	conn.Write([]byte(resp))
+
 }
