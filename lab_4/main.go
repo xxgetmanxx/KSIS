@@ -76,45 +76,67 @@ func loadBlacklist(filename string) {
 }
 
 func handleConnection(clientConn net.Conn) {
-	// Гарантированно закрываем соединение с клиентом при выходе из функции
+
 	defer clientConn.Close()
+
+	// Шаг_1
 
 	clientReader := bufio.NewReader(clientConn)
 
-	// Шаг 1: Читаем первую строку HTTP-запроса (Request Line)
 	reqLine, err := clientReader.ReadString('\n')
+
 	if err != nil {
+
 		return
+
 	}
+
 	reqLine = strings.TrimSpace(reqLine)
 
-	// Разбиваем строку на Метод, URL и Версию протокола (например: GET http://example.com/ HTTP/1.1)
+	// Шаг_2
+
 	parts := strings.Split(reqLine, " ")
+
 	if len(parts) != 3 {
+
 		return
+
 	}
+
 	method, rawURL, proto := parts[0], parts[1], parts[2]
 
-	// Отклоняем HTTPS (CONNECT), так как по заданию поддержка не требуется
 	if method == "CONNECT" {
+
 		clientConn.Write([]byte("HTTP/1.1 501 Not Implemented\r\n\r\n"))
+
 		return
+
 	}
 
-	// Шаг 2: Парсим URL, чтобы достать хост и путь
+	// Шаг_2
+
 	parsedURL, err := url.Parse(rawURL)
+
 	if err != nil {
+
 		return
+
 	}
 
 	host := parsedURL.Hostname()
+
 	port := parsedURL.Port()
+
 	if port == "" {
-		port = "80" // По умолчанию для HTTP
+
+		port = "80"
+
 	}
+
 	targetAddress := host + ":" + port
 
-	// Шаг 3: Проверка на черный список (Доп. задание)
+	// Шаг_3
+
 	if blacklist[host] {
 		log.Printf("[BLOCKED] URL: %s", rawURL)
 		sendErrorPage(clientConn, host)
