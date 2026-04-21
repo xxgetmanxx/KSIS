@@ -11,33 +11,38 @@ import (
 	"strings"
 )
 
-// Глобальная переменная для хранения черного списка
 var blacklist = make(map[string]bool)
 
 func main() {
-	// 1. Загружаем черный список сайтов
+
 	loadBlacklist("blacklist.txt")
 
-	// 2. Запускаем TCP-слушатель (сокет) на порту 8080
 	listener, err := net.Listen("tcp", ":8080")
+
 	if err != nil {
-		log.Fatalf("Ошибка запуска сервера: %v", err)
+
+		log.Fatalf("Ошибка запуска сервера")
+
 	}
+
 	defer listener.Close()
 
-	fmt.Println("Прокси-сервер запущен на 127.0.0.1:8080")
-
-	// 3. Бесконечный цикл ожидания клиентов
 	for {
+
 		clientConn, err := listener.Accept()
+
 		if err != nil {
-			log.Printf("Ошибка подключения клиента: %v", err)
+
+			log.Println("Ошибка подключения клиента")
+
 			continue
+
 		}
 
-		// 4. Многопоточность: каждый клиент обрабатывается в отдельной горутине
 		go handleConnection(clientConn)
+
 	}
+
 }
 
 func loadBlacklist(filename string) {
@@ -46,7 +51,7 @@ func loadBlacklist(filename string) {
 
 	if err != nil {
 
-		log.Printf("Файл не найден")
+		log.Println("Файл не найден")
 
 		return
 
@@ -55,15 +60,21 @@ func loadBlacklist(filename string) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+
 	for scanner.Scan() {
+
 		domain := strings.TrimSpace(scanner.Text())
+
 		if domain != "" {
+
 			blacklist[domain] = true
+
 		}
+
 	}
+
 }
 
-// Функция обработки отдельного клиентского подключения
 func handleConnection(clientConn net.Conn) {
 	// Гарантированно закрываем соединение с клиентом при выходе из функции
 	defer clientConn.Close()
