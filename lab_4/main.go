@@ -107,6 +107,8 @@ func handleConnection(clientConn net.Conn) {
 
 	method, rawURL, proto := parts[0], parts[1], parts[2]
 
+	fmt.Printf("%s %s - RECEIVED\n", method, rawURL)
+
 	if method == "CONNECT" {
 
 		clientConn.Write([]byte("HTTP/1.1 501 Not Implemented\r\n\r\n"))
@@ -141,7 +143,7 @@ func handleConnection(clientConn net.Conn) {
 
 	if blacklist[host] {
 
-		log.Println("BLOCKED")
+		fmt.Printf("%s - BLOCKED\n", host)
 
 		sendErrorPage(clientConn, host)
 
