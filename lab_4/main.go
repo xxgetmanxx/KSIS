@@ -189,37 +189,57 @@ func handleConnection(clientConn net.Conn) {
 
 	// Шаг_8
 
-	go io.Copy(targetConn, clientReader)
+	for {
+
+		line, err := clientReader.ReadString('\n')
+
+		if err != nil {
+
+			break
+
+		}
+
+		targetConn.Write([]byte(line))
+
+		if line == "\r\n" || line == "\n" {
+
+			break
+
+		}
+
+	}
 
 	// Шаг_9
 
 	targetReader := bufio.NewReader(targetConn)
 
-	respLine, err := targetReader.ReadString('\n')
+	respLine, _ := targetReader.ReadString('\n')
 
-	if err != nil {
-
-		return
-
-	}
-
-	statusCode := "Unknown"
-
-	respParts := strings.SplitN(strings.TrimSpace(respLine), " ", 3)
-
-	if len(respParts) >= 2 {
-
-		statusCode = respParts[1]
-
-	}
-
-	fmt.Printf("%s - %s OK\n", rawURL, statusCode)
+	fmt.Printf("%s - %s", rawURL, respLine)
 
 	clientConn.Write([]byte(respLine))
 
-	// Шаг 10
+	// Шаг_10
 
-	io.Copy(clientConn, targetReader)
+	done := make(chan struct{}, 2)
+
+	go func() {
+
+		io.Copy(targetConn, clientReader)
+
+		done <- struct{}{}
+
+	}()
+
+	go func() {
+
+		io.Copy(clientConn, targetReader)
+
+		done <- struct{}{}
+
+	}()
+
+	<-done
 
 }
 
