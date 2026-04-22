@@ -213,7 +213,7 @@ func handleConnection(clientConn net.Conn) {
 
 	}
 
-	log.Printf("[PROXY] URL: %s | Code: %s\n", rawURL, statusCode)
+	fmt.Printf("%s - %s OK\n", rawURL, statusCode)
 
 	clientConn.Write([]byte(respLine))
 
