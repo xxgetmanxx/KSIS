@@ -27,6 +27,8 @@ func main() {
 
 	defer listener.Close()
 
+	fmt.Println("Прокси-сервер запущен")
+
 	for {
 
 		clientConn, err := listener.Accept()
@@ -185,7 +187,25 @@ func handleConnection(clientConn net.Conn) {
 
 	// Шаг_8
 
-	go io.Copy(targetConn, clientReader)
+	for {
+
+		line, err := clientReader.ReadString('\n')
+
+		if err != nil {
+
+			break
+
+		}
+
+		targetConn.Write([]byte(line))
+
+		if line == "\r\n" {
+
+			break
+
+		}
+
+	}
 
 	// Шаг_9
 
@@ -194,6 +214,8 @@ func handleConnection(clientConn net.Conn) {
 	respLine, err := targetReader.ReadString('\n')
 
 	if err != nil {
+
+		log.Println("Ошибка чтения ответа от сервера")
 
 		return
 
