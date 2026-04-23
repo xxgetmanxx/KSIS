@@ -201,17 +201,21 @@ func handleConnection(clientConn net.Conn) {
 
 	}
 
-	statusCode := "Unknown"
+	statusText := "Unknown"
 
 	respParts := strings.SplitN(strings.TrimSpace(respLine), " ", 3)
 
-	if len(respParts) >= 2 {
+	if len(respParts) >= 3 {
 
-		statusCode = respParts[1]
+		statusText = respParts[1] + " " + respParts[2]
+
+	} else if len(respParts) == 2 {
+
+		statusText = respParts[1]
 
 	}
 
-	fmt.Printf("%s - %s OK\n", rawURL, statusCode)
+	fmt.Printf("%s - %s\n", rawURL, statusText)
 
 	clientConn.Write([]byte(respLine))
 
