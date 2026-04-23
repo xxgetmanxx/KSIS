@@ -17,7 +17,7 @@ func main() {
 
 	loadBlacklist("blacklist.txt")
 
-	listener, err := net.Listen("tcp", ":8080")
+	listener, err := net.Listen("tcp", "127.0.0.2:8080")
 
 	if err != nil {
 
@@ -106,8 +106,6 @@ func handleConnection(clientConn net.Conn) {
 	}
 
 	method, rawURL, proto := parts[0], parts[1], parts[2]
-
-	fmt.Printf("%s %s - RECEIVED\n", method, rawURL)
 
 	if method == "CONNECT" {
 
