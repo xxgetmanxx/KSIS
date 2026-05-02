@@ -20,20 +20,35 @@ func main() {
 		switch r.Method {
 
 		case http.MethodGet:
+
 			info, err := os.Stat(path)
+
 			if err != nil {
+
 				http.Error(w, "Not Found", 404)
+
 				return
+
 			}
+
 			if info.IsDir() {
+
 				entries, _ := os.ReadDir(path)
+
 				var list []string = []string{}
+
 				for _, e := range entries {
+
 					list = append(list, e.Name())
+
 				}
+
 				json.NewEncoder(w).Encode(list)
+
 				return
+
 			}
+
 			http.ServeFile(w, r, path)
 
 		case http.MethodPut:
@@ -68,7 +83,9 @@ func main() {
 			w.WriteHeader(204)
 
 		default:
+
 			w.WriteHeader(405)
+
 		}
 
 	})
