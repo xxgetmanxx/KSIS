@@ -13,10 +13,6 @@ const baseDir = "./storage_data"
 
 func main() {
 
-	os.RemoveAll(baseDir)
-
-	os.MkdirAll(baseDir, 0755)
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
 		path := filepath.Join(baseDir, filepath.Clean(r.URL.Path))
