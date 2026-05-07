@@ -38,7 +38,7 @@ func getSafePath(urlPath string) (string, error) {
 
 func main() {
 
-	os.MkdirAll(baseDir, 0755) // иденпотентность
+	os.MkdirAll(baseDir, 0755)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -207,7 +207,7 @@ func main() {
 
 			info, err := os.Stat(path)
 
-			if err != nil || info.IsDir() {
+			if err != nil {
 
 				w.WriteHeader(http.StatusNotFound) // "404"
 
@@ -215,11 +215,33 @@ func main() {
 
 			}
 
-			w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+			var size int64
+
+			if info.IsDir() {
+
+				filepath.Walk(path, func(_ string, f os.FileInfo, err error) error {
+
+					if err == nil && !f.IsDir() {
+
+						size += f.Size()
+
+					}
+
+					return nil
+
+				})
+
+			} else {
+
+				size = info.Size()
+
+			}
+
+			w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 
 			w.WriteHeader(http.StatusOK) // "200"
 
-			log.Printf("[HED]: %s", r.URL.Path)
+			log.Printf("[HED]: %s (Size: %d)", r.URL.Path, size)
 
 		case http.MethodDelete:
 
