@@ -245,9 +245,25 @@ func main() {
 
 		case http.MethodDelete:
 
+			if _, err := os.Stat(path); err != nil {
+
+				if os.IsNotExist(err) {
+
+					http.Error(w, "Not Found", http.StatusNotFound)
+
+					return
+
+				}
+
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "204"
+
+				return
+
+			}
+
 			if err := os.RemoveAll(path); err != nil {
 
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 
 				return
 
@@ -255,7 +271,7 @@ func main() {
 
 			log.Printf("[DEL]: %s", r.URL.Path)
 
-			w.WriteHeader(http.StatusNoContent) // "204"
+			w.WriteHeader(http.StatusNoContent) // 204
 
 		default:
 
