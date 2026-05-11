@@ -42,6 +42,14 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
+		if strings.Contains(r.RequestURI, "..") {
+
+			http.Error(w, "Forbidden", http.StatusForbidden)
+
+			return
+
+		}
+
 		path, err := getSafePath(r.URL.Path)
 
 		if err != nil {
