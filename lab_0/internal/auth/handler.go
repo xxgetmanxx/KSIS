@@ -202,7 +202,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 		query = `SELECT COUNT(*) FROM games_history WHERE winner_id = $1`
 		database.DB.QueryRow(query, userID).Scan(&wins)
 
-		query = `SELECT COALESCE(MAX(pot), 0) FROM games_history WHERE winner_id = $1`
+		query = `SELECT COALESCE(MAX(pot / 2), 0) FROM games_history WHERE winner_id = $1`
 		database.DB.QueryRow(query, userID).Scan(&maxWin)
 
 		query = `SELECT 
