@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"poker-duel/internal/database"
@@ -262,21 +264,121 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 
 	login := strings.TrimSpace(r.FormValue("login"))
 	netAmountStr := r.FormValue("net_amount")
+	wonStr := r.FormValue("won")
+	potStr := r.FormValue("pot")
+	mode := r.FormValue("mode")
+
+	log.Println("SaveGameResultHandler called:", login, netAmountStr, wonStr, potStr, mode)
 
 	if login == "" {
 		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Логин не указан"})
 		return
 	}
 
-	var netAmount int
-	fmt.Sscanf(netAmountStr, "%d", &netAmount)
+	var netAmount, pot int
+	var won bool
+	var err error
 
-	query := `UPDATE users SET balance = balance + $1 WHERE login = $2`
-	database.DB.Exec(query, netAmount, login)
+	netAmount, err = strconv.Atoi(netAmountStr)
+	if err != nil {
+		log.Println("Error parsing net_amount:", err)
+		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Некорректный net_amount"})
+		return
+	}
+
+	pot, err = strconv.Atoi(potStr)
+	if err != nil {
+		log.Println("Error parsing pot:", err)
+		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Некорректный pot"})
+		return
+	}
+
+	won = wonStr == "true"
+
+	log.Println("Parsed values:", netAmount, pot, won)
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		log.Println("Error begin tx:", err)
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка базы данных"})
+		return
+	}
+	defer tx.Rollback()
+
+	var userID int
+	query := `SELECT id FROM users WHERE login = $1`
+	err = tx.QueryRow(query, login).Scan(&userID)
+	if err != nil {
+		log.Println("Error get user id:", err)
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Пользователь не найден"})
+		return
+	}
+
+	var botID int
+	query = `SELECT id FROM users WHERE login = 'bot'`
+	err = tx.QueryRow(query).Scan(&botID)
+	if err != nil {
+		query = `INSERT INTO users (login, password_hash) VALUES ('bot', 'bot') RETURNING id`
+		err = tx.QueryRow(query).Scan(&botID)
+		if err != nil {
+			log.Println("Error create bot:", err)
+			sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка создания бота"})
+			return
+		}
+	}
+
+	var winnerID, loserID int
+	if won {
+		winnerID = userID
+		loserID = botID
+	} else {
+		winnerID = botID
+		loserID = userID
+	}
+
+	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode) VALUES ($1, $2, $3, $4)`
+	_, err = tx.Exec(query, winnerID, loserID, pot, mode)
+	if err != nil {
+		log.Println("Error insert history:", err)
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка сохранения истории"})
+		return
+	}
+
+	query = `UPDATE users SET balance = balance + $1 WHERE id = $2`
+	_, err = tx.Exec(query, netAmount, userID)
+	if err != nil {
+		log.Println("Error update balance:", err)
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка обновления баланса"})
+		return
+	}
+
+	if won && mode == "Турнир" {
+		query = `UPDATE users SET trophies = trophies + 1 WHERE id = $1`
+		_, err = tx.Exec(query, userID)
+		if err != nil {
+			log.Println("Error update trophies:", err)
+			sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка обновления трофеев"})
+			return
+		}
+	}
 
 	var newBalance, newTrophies int
-	query = `SELECT balance, trophies FROM users WHERE login = $1`
-	database.DB.QueryRow(query, login).Scan(&newBalance, &newTrophies)
+	query = `SELECT balance, trophies FROM users WHERE id = $1`
+	err = tx.QueryRow(query, userID).Scan(&newBalance, &newTrophies)
+	if err != nil {
+		log.Println("Error get new balance:", err)
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка получения данных"})
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Println("Error commit:", err)
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка коммита"})
+		return
+	}
+
+	log.Println("Success! New balance:", newBalance)
 
 	sendJSON(w, http.StatusOK, SuccessResponse{
 		Success: true,

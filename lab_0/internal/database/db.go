@@ -36,6 +36,7 @@ func createTables() {
 			balance INT DEFAULT 10000,
 			trophies INT DEFAULT 0
 		)`,
+		`DROP TABLE IF EXISTS games_history`,
 		`CREATE TABLE IF NOT EXISTS games_history (
 			id SERIAL PRIMARY KEY,
 			winner_id INT REFERENCES users(id),

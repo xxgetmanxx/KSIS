@@ -15,6 +15,7 @@ let bigBlind = 200;
 let currentTournamentRound = 1;
 let isTournamentMode = false;
 let lastActionWasRaise = false;
+let gameResultSaved = false;
 
 function createShuffledDeck() {
     const suits = ["♠", "♥", "♦", "♣"];
@@ -73,7 +74,7 @@ async function loadUserStats() {
                     else if (modeName.includes('Spin')) icon = '🎰';
                     else if (modeName.includes('Турнир') || modeName.includes('tournament')) icon = '🏆';
                     
-                    const amount = game.pot || 0;
+                    const amount = Math.floor((game.pot || 0) / 2);
                     const color = game.won ? 'var(--accent-success)' : '#FF3B30';
                     const sign = game.won ? '+' : '-';
                     
@@ -524,6 +525,7 @@ function resetGame() {
     deckIndex = 0;
     localGamePhase = "preflop";
     tableCards = [];
+    gameResultSaved = false;
     currentPot = smallBlind + bigBlind;
     myStack -= smallBlind;
     myBuyIn = smallBlind;
@@ -659,11 +661,12 @@ async function sendRequest(url, data) {
 }
 
 async function saveGameResult(won, pot, mode) {
-    if (!currentUsername) return;
+    if (!currentUsername || gameResultSaved) return;
+    gameResultSaved = true;
     
     let netAmount;
     if (won) {
-        netAmount = pot;
+        netAmount = Math.floor(pot / 2);
     } else {
         netAmount = -myBuyIn;
     }
@@ -671,6 +674,9 @@ async function saveGameResult(won, pot, mode) {
     const formData = new URLSearchParams();
     formData.append("login", currentUsername);
     formData.append("net_amount", netAmount.toString());
+    formData.append("won", won.toString());
+    formData.append("pot", pot.toString());
+    formData.append("mode", mode);
 
     try {
         const response = await fetch("/api/game/save-result", {
@@ -692,6 +698,48 @@ async function saveGameResult(won, pot, mode) {
             }
             if (trophiesEl) {
                 trophiesEl.innerHTML = '<span class="icon">🏆</span> ' + (newTrophies || 0);
+            }
+        }
+    } catch (e) {
+    }
+}
+
+async function loadStats() {
+    if (!currentUsername) return;
+    
+    try {
+        const response = await fetch(`/api/user/stats?login=${encodeURIComponent(currentUsername)}`);
+        const json = await response.json();
+        
+        if (json.success && json.data) {
+            document.getElementById("stats-total-games").textContent = json.data.total_games || 0;
+            document.getElementById("stats-win-percent").textContent = (json.data.win_percent || 0) + "%";
+            document.getElementById("stats-max-win").textContent = (json.data.max_win || 0).toLocaleString();
+            
+            const historyList = document.getElementById("history-list");
+            if (historyList) {
+                historyList.innerHTML = "";
+                const history = json.data.history || [];
+                history.forEach(game => {
+                    const div = document.createElement("div");
+                    div.className = "match-box";
+                    div.style.display = "flex";
+                    div.style.justifyContent = "space-between";
+                    div.style.alignItems = "center";
+                    
+                    let amount;
+                    if (game.won) {
+                        amount = "+" + Math.floor(game.pot / 2).toLocaleString();
+                    } else {
+                        amount = "-" + Math.floor(game.pot / 2).toLocaleString();
+                    }
+                    
+                    div.innerHTML = `
+                        <div>${game.mode || "Игра"}</div>
+                        <div style="color:${game.won ? 'var(--accent-success)' : '#FF3B30'}; font-weight:700;">${amount} 🪙</div>
+                    `;
+                    historyList.appendChild(div);
+                });
             }
         }
     } catch (e) {
@@ -814,7 +862,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const btnOpenStats = document.getElementById("btn-open-stats");
-    if (btnOpenStats) btnOpenStats.onclick = () => showScreenByName("stats");
+    if (btnOpenStats) btnOpenStats.onclick = async () => {
+        showScreenByName("stats");
+        await loadStats();
+    };
 
     const btnBackFromStats = document.getElementById("btn-back-from-stats");
     if (btnBackFromStats) btnBackFromStats.onclick = () => showScreenByName("menu");
