@@ -52,8 +52,10 @@ body::after {
     border-radius: 24px;
 }
 
-.auth-card { padding: 45px; width: 100%; max-width: 400px; text-align: center; }
-.brand-title { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; background: linear-gradient(180deg, #fff 0%, #a1a1a6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.auth-card { padding: 70px 50px 50px 50px; width: 100%; max-width: 420px; text-align: center; }
+.brand-title { font-size: 52px; font-weight: 800; letter-spacing: -1.5px; margin-bottom: 50px; background: linear-gradient(135deg, #fff 0%, #a1a1a6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+.input-group { margin-bottom: 24px; }
 .brand-subtitle { color: var(--text-secondary); margin-bottom: 32px; font-size: 14px; }
 
 .input-group input { 
