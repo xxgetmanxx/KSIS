@@ -200,12 +200,12 @@ function getCardRankValue(value) {
 }
 
 function getRankName(rank) {
-    const names = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"Jacks",12:"Queens",13:"Kings",14:"Aces"};
+    const names = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A"};
     return names[rank] || rank.toString();
 }
 
 function getRankNameShort(rank) {
-    const names = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"Jack",12:"Queen",13:"King",14:"Ace"};
+    const names = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"J",12:"Q",13:"K",14:"A"};
     return names[rank] || rank.toString();
 }
 
@@ -235,12 +235,12 @@ function evaluateHand(cards) {
     
     if(isFlush && straightCheck && straightCheck.yes && straightCheck.high===14) return {name:"Royal Flush", rank:10, high:14};
     if(isFlush && straightCheck && straightCheck.yes) return {name:"Straight Flush", rank:9, high:straightCheck.high};
-    if(counts[0]===4) return {name:`Four of a Kind (${getRankNameShort(highRanks[0])}s)`, rank:8, high:highRanks[0]};
-    if(counts[0]===3 && counts[1]>=2) return {name:`Full House (${getRankNameShort(highRanks[0])} full of ${getRankNameShort(highRanks[1])}s)`, rank:7, high:highRanks[0]};
+    if(counts[0]===4) return {name:`Four of a Kind (${getRankName(highRanks[0])})`, rank:8, high:highRanks[0]};
+    if(counts[0]===3 && counts[1]>=2) return {name:`Full House (${getRankName(highRanks[0])} full of ${getRankName(highRanks[1])})`, rank:7, high:highRanks[0]};
     if(isFlush) return {name:"Flush", rank:6, high:ranks[0]};
     if(straightCheck && straightCheck.yes) return {name:"Straight", rank:5, high:straightCheck.high};
-    if(counts[0]===3) return {name:`Three of a Kind (${getRankNameShort(highRanks[0])}s)`, rank:4, high:highRanks[0]};
-    if(counts[0]===2 && counts[1]===2) return {name:`Two Pair (${getRankNameShort(highRanks[0])}s and ${getRankNameShort(highRanks[1])}s)`, rank:3, high:highRanks[0]};
+    if(counts[0]===3) return {name:`Three of a Kind (${getRankName(highRanks[0])})`, rank:4, high:highRanks[0]};
+    if(counts[0]===2 && counts[1]===2) return {name:`Two Pair (${getRankName(highRanks[0])} and ${getRankName(highRanks[1])})`, rank:3, high:highRanks[0]};
     if(counts[0]===2) return {name:`Pair of ${getRankName(highRanks[0])}`, rank:2, high:highRanks[0]};
     return {name:"High Card", rank:1, high:ranks[0]};
 }
