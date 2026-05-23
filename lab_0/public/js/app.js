@@ -8,6 +8,7 @@ let opponentCards = [];
 let fullDeck = [];
 let deckIndex = 0;
 let myStack = 10000;
+let myBuyIn = 0;
 let opponentStack = 10000;
 let smallBlind = 100;
 let bigBlind = 200;
@@ -95,6 +96,7 @@ function formatNumber(num) {
 }
 
 function doFold() {
+    saveGameResult(false, currentPot, isTournamentMode ? "Турнир" : "Arena");
     showResultModal("Ты сбросил карты! Поражение.", "loss");
 }
 
@@ -126,6 +128,7 @@ function doRaise() {
     let raiseAmount = validateAndGetRaiseAmount();
     const botCallAmount = Math.min(raiseAmount, opponentStack);
     myStack -= raiseAmount;
+    myBuyIn += raiseAmount;
     opponentStack -= botCallAmount;
     currentPot += raiseAmount + botCallAmount;
     document.getElementById("pot-val").textContent = currentPot.toLocaleString();
@@ -142,6 +145,7 @@ function doAllIn() {
     const raiseAmount = myStack;
     const botCallAmount = Math.min(raiseAmount, opponentStack);
     myStack -= raiseAmount;
+    myBuyIn += raiseAmount;
     opponentStack -= botCallAmount;
     currentPot += raiseAmount + botCallAmount;
     document.getElementById("pot-val").textContent = currentPot.toLocaleString();
@@ -176,6 +180,9 @@ function autoCompleteAllPhases() {
             const myBestHand = getBestHand(myCards, tableCards);
             const opponentBestHand = getBestHand(opponentCards, tableCards);
             const result = determineWinner(myBestHand, opponentBestHand);
+            let gameWon = result.won || result.tie;
+            let netAmount = result.tie ? Math.floor(currentPot / 2) - (smallBlind + bigBlind) : (gameWon ? currentPot : -(smallBlind + bigBlind));
+            
             if (result.won || result.tie) {
                 if (result.tie) {
                     myStack += Math.floor(currentPot / 2);
@@ -190,6 +197,8 @@ function autoCompleteAllPhases() {
                 updateStacksDisplay();
                 checkForTournamentWin();
             }
+            
+            saveGameResult(result.won, currentPot, isTournamentMode ? "Турнир" : "Arena");
         }, 1500);
     }, 1000);
 }
@@ -324,6 +333,9 @@ function nextGamePhase() {
                 const myBestHand = getBestHand(myCards, tableCards);
                 const opponentBestHand = getBestHand(opponentCards, tableCards);
                 const result = determineWinner(myBestHand, opponentBestHand);
+                
+                saveGameResult(result.won, currentPot, isTournamentMode ? "Турнир" : "Arena");
+                
                 if (result.won || result.tie) {
                     if (result.tie) {
                         myStack += Math.floor(currentPot / 2);
@@ -498,6 +510,7 @@ function checkForTournamentWin() {
 
 function startGame() {
     myStack = 10000;
+    myBuyIn = 0;
     opponentStack = 10000;
     resetGame();
     showScreenByName("game");
@@ -513,6 +526,7 @@ function resetGame() {
     tableCards = [];
     currentPot = smallBlind + bigBlind;
     myStack -= smallBlind;
+    myBuyIn = smallBlind;
     opponentStack -= bigBlind;
     myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
     opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
@@ -644,6 +658,46 @@ async function sendRequest(url, data) {
     }
 }
 
+async function saveGameResult(won, pot, mode) {
+    if (!currentUsername) return;
+    
+    let netAmount;
+    if (won) {
+        netAmount = pot;
+    } else {
+        netAmount = -myBuyIn;
+    }
+
+    const formData = new URLSearchParams();
+    formData.append("login", currentUsername);
+    formData.append("net_amount", netAmount.toString());
+
+    try {
+        const response = await fetch("/api/game/save-result", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: formData
+        });
+        const json = await response.json();
+        
+        if (json.success && json.data) {
+            const newBalance = json.data.balance;
+            const newTrophies = json.data.trophies;
+            
+            const balanceEl = document.getElementById("user-balance");
+            const trophiesEl = document.getElementById("user-trophies");
+            
+            if (balanceEl) {
+                balanceEl.innerHTML = '<span class="icon">🪙</span> ' + (newBalance || 0).toLocaleString();
+            }
+            if (trophiesEl) {
+                trophiesEl.innerHTML = '<span class="icon">🏆</span> ' + (newTrophies || 0);
+            }
+        }
+    } catch (e) {
+    }
+}
+
 async function handleLogin() {
     hideAuthError();
     const loginInput = document.getElementById("username");
@@ -667,13 +721,15 @@ async function handleLogin() {
         currentUsername = login;
         const balanceEl = document.getElementById("user-balance");
         const trophiesEl = document.getElementById("user-trophies");
+        let userBalance = 10000;
+        let userTrophies = 0;
         if (balanceEl && result.data.data) {
-            const balance = result.data.data.balance ? result.data.data.balance : 10000;
-            balanceEl.innerHTML = '<span class="icon">🪙</span> ' + balance.toLocaleString();
+            userBalance = result.data.data.balance ? result.data.data.balance : 10000;
+            balanceEl.innerHTML = '<span class="icon">🪙</span> ' + userBalance.toLocaleString();
         }
         if (trophiesEl && result.data.data) {
-            const trophies = result.data.data.trophies ? result.data.data.trophies : 0;
-            trophiesEl.innerHTML = '<span class="icon">🏆</span> ' + trophies;
+            userTrophies = result.data.data.trophies ? result.data.data.trophies : 0;
+            trophiesEl.innerHTML = '<span class="icon">🏆</span> ' + userTrophies;
         }
         showScreenByName("menu");
     } else {

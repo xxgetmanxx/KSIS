@@ -254,3 +254,36 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		sendJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Метод не поддерживается"})
+		return
+	}
+
+	login := strings.TrimSpace(r.FormValue("login"))
+	netAmountStr := r.FormValue("net_amount")
+
+	if login == "" {
+		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Логин не указан"})
+		return
+	}
+
+	var netAmount int
+	fmt.Sscanf(netAmountStr, "%d", &netAmount)
+
+	query := `UPDATE users SET balance = balance + $1 WHERE login = $2`
+	database.DB.Exec(query, netAmount, login)
+
+	var newBalance, newTrophies int
+	query = `SELECT balance, trophies FROM users WHERE login = $1`
+	database.DB.QueryRow(query, login).Scan(&newBalance, &newTrophies)
+
+	sendJSON(w, http.StatusOK, SuccessResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"balance":  newBalance,
+			"trophies": newTrophies,
+		},
+	})
+}
+

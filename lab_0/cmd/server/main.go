@@ -30,6 +30,8 @@ func main() {
 			auth.ProfileHandler(w, r)
 		case "/api/user/stats":
 			auth.StatsHandler(w, r)
+		case "/api/game/save-result":
+			auth.SaveGameResultHandler(w, r)
 		case "/ws":
 			network.ServeWS(hub, w, r)
 		default:

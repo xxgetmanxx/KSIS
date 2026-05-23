@@ -23,4 +23,33 @@ func InitDB(host, port, user, password, dbname string) {
 	if err = DB.Ping(); err != nil {
 		log.Fatalf("DB Connection Error: %v. Проверьте запущен ли PostgreSQL.", err)
 	}
+
+	createTables()
+}
+
+func createTables() {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id SERIAL PRIMARY KEY,
+			login VARCHAR(50) UNIQUE NOT NULL,
+			password_hash VARCHAR(255) NOT NULL,
+			balance INT DEFAULT 10000,
+			trophies INT DEFAULT 0
+		)`,
+		`CREATE TABLE IF NOT EXISTS games_history (
+			id SERIAL PRIMARY KEY,
+			winner_id INT REFERENCES users(id),
+			loser_id INT REFERENCES users(id),
+			pot INT NOT NULL,
+			mode VARCHAR(50),
+			played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`,
+	}
+
+	for _, q := range queries {
+		_, err := DB.Exec(q)
+		if err != nil {
+			log.Printf("Warning: %v", err)
+		}
+	}
 }
