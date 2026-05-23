@@ -28,6 +28,8 @@ func main() {
 			auth.LoginHandler(w, r)
 		case "/api/user/profile":
 			auth.ProfileHandler(w, r)
+		case "/api/user/stats":
+			auth.StatsHandler(w, r)
 		case "/ws":
 			network.ServeWS(hub, w, r)
 		default:

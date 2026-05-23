@@ -180,3 +180,77 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func StatsHandler(w http.ResponseWriter, r *http.Request) {
+	login := r.URL.Query().Get("login")
+	if login == "" {
+		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Логин не указан"})
+		return
+	}
+
+	var totalGames, wins, maxWin int
+	var history []map[string]interface{}
+
+	var userID int
+	query := `SELECT id FROM users WHERE login = $1`
+	err := database.DB.QueryRow(query, login).Scan(&userID)
+	if err == nil {
+		query = `SELECT COUNT(*) FROM games_history WHERE winner_id = $1 OR loser_id = $1`
+		database.DB.QueryRow(query, userID).Scan(&totalGames)
+
+		query = `SELECT COUNT(*) FROM games_history WHERE winner_id = $1`
+		database.DB.QueryRow(query, userID).Scan(&wins)
+
+		query = `SELECT COALESCE(MAX(pot), 0) FROM games_history WHERE winner_id = $1`
+		database.DB.QueryRow(query, userID).Scan(&maxWin)
+
+		query = `SELECT 
+			CASE WHEN winner_id = $1 THEN true ELSE false END as won,
+			pot,
+			mode,
+			played_at
+		FROM games_history 
+		WHERE winner_id = $1 OR loser_id = $1
+		ORDER BY played_at DESC
+		LIMIT 10`
+		rows, err := database.DB.Query(query, userID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var won bool
+				var pot int
+				var mode string
+				var playedAt string
+				rows.Scan(&won, &pot, &mode, &playedAt)
+				history = append(history, map[string]interface{}{
+					"won":  won,
+					"pot":  pot,
+					"mode": mode,
+				})
+			}
+		}
+	}
+
+	if totalGames == 0 {
+		totalGames = 0
+		wins = 0
+		maxWin = 0
+	}
+
+	var winPercent int
+	if totalGames > 0 {
+		winPercent = (wins * 100) / totalGames
+	} else {
+		winPercent = 0
+	}
+
+	sendJSON(w, http.StatusOK, SuccessResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"total_games":  totalGames,
+			"win_percent":  winPercent,
+			"max_win":      maxWin,
+			"history":      history,
+		},
+	})
+}
+

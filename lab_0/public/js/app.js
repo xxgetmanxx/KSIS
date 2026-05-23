@@ -39,6 +39,59 @@ function showScreenByName(name) {
     });
     const target = document.getElementById(name + "-screen");
     if (target) target.classList.remove("hidden");
+    
+    if (name === "stats" && currentUsername) {
+        loadUserStats();
+    }
+}
+
+async function loadUserStats() {
+    try {
+        const res = await fetch(`/api/user/stats?login=${encodeURIComponent(currentUsername)}`);
+        const json = await res.json();
+        if (json.success) {
+            const stats = json.data;
+            document.getElementById('stats-total-games').textContent = stats.total_games || 0;
+            document.getElementById('stats-win-percent').textContent = (stats.win_percent || 0) + '%';
+            document.getElementById('stats-max-win').textContent = formatNumber(stats.max_win || 0);
+            
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            
+            if (stats.history && stats.history.length > 0) {
+                stats.history.forEach(game => {
+                    const div = document.createElement('div');
+                    div.className = 'match-box';
+                    div.style.display = 'flex';
+                    div.style.justifyContent = 'space-between';
+                    div.style.alignItems = 'center';
+                    
+                    let icon = '🆚';
+                    let modeName = game.mode || 'Игра';
+                    if (modeName.includes('ARENA')) icon = '🆚';
+                    else if (modeName.includes('Spin')) icon = '🎰';
+                    else if (modeName.includes('Турнир') || modeName.includes('tournament')) icon = '🏆';
+                    
+                    const amount = game.pot || 0;
+                    const color = game.won ? 'var(--accent-success)' : '#FF3B30';
+                    const sign = game.won ? '+' : '-';
+                    
+                    div.innerHTML = `
+                        <div>${icon} ${modeName}</div>
+                        <div style="color:${color}; font-weight:700;">${sign}${formatNumber(amount)} 🪙</div>
+                    `;
+                    historyList.appendChild(div);
+                });
+            } else {
+                historyList.innerHTML = '<div class="match-box" style="text-align:center; color:var(--text-secondary);">Пока нет сыгранных игр</div>';
+            }
+        }
+    } catch (e) {
+    }
+}
+
+function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function doFold() {
@@ -120,9 +173,16 @@ function autoCompleteAllPhases() {
         localGamePhase = "showdown";
         showOpponentCards();
         setTimeout(() => {
-            const win = Math.random() > 0.5;
-            if (win) {
-                myStack += currentPot;
+            const myBestHand = getBestHand(myCards, tableCards);
+            const opponentBestHand = getBestHand(opponentCards, tableCards);
+            const result = determineWinner(myBestHand, opponentBestHand);
+            if (result.won || result.tie) {
+                if (result.tie) {
+                    myStack += Math.floor(currentPot / 2);
+                    opponentStack += Math.floor(currentPot / 2);
+                } else {
+                    myStack += currentPot;
+                }
                 updateStacksDisplay();
                 checkForTournamentWin();
             } else {
@@ -134,42 +194,114 @@ function autoCompleteAllPhases() {
     }, 1000);
 }
 
+function getCardRankValue(value) {
+    const ranks = {"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"J":11,"Q":12,"K":13,"A":14};
+    return ranks[value] || 0;
+}
+
+function getRankName(rank) {
+    const names = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"Jacks",12:"Queens",13:"Kings",14:"Aces"};
+    return names[rank] || rank.toString();
+}
+
+function getRankNameShort(rank) {
+    const names = {2:"2",3:"3",4:"4",5:"5",6:"6",7:"7",8:"8",9:"9",10:"10",11:"Jack",12:"Queen",13:"King",14:"Ace"};
+    return names[rank] || rank.toString();
+}
+
+function evaluateHand(cards) {
+    if (cards.length < 5) return { name: "High Card", rank: 1, high: Math.max(...cards.map(c => getCardRankValue(c.value))) };
+    
+    const sortedCards = [...cards].sort((a,b) => getCardRankValue(b.value) - getCardRankValue(a.value));
+    const ranks = sortedCards.map(c => getCardRankValue(c.value));
+    const suits = sortedCards.map(c => c.suit);
+    
+    const isFlush = suits[0] && suits.every(s => s === suits[0]);
+    const isStraight = (r) => {
+        const unique = [...new Set(r)].sort((a,b)=>b-a);
+        if (unique.length < 5) return false;
+        for(let i=0; i<=unique.length-5; i++){
+            if(unique[i]-unique[i+4] ===4) return {yes:true, high:unique[i]};
+        }
+        if(unique.includes(14) && unique.includes(5) && unique.includes(4) && unique.includes(3) && unique.includes(2)) return {yes:true, high:5};
+        return false;
+    };
+    const straightCheck = isStraight(ranks);
+    
+    const rankCounts = {};
+    ranks.forEach(r => rankCounts[r] = (rankCounts[r] || 0)+1);
+    const counts = Object.values(rankCounts).sort((a,b)=>b-a);
+    const highRanks = Object.entries(rankCounts).sort((a,b)=> (b[1]-a[1]) || (parseInt(b[0])-parseInt(a[0]))).map(e=>parseInt(e[0]));
+    
+    if(isFlush && straightCheck && straightCheck.yes && straightCheck.high===14) return {name:"Royal Flush", rank:10, high:14};
+    if(isFlush && straightCheck && straightCheck.yes) return {name:"Straight Flush", rank:9, high:straightCheck.high};
+    if(counts[0]===4) return {name:`Four of a Kind (${getRankNameShort(highRanks[0])}s)`, rank:8, high:highRanks[0]};
+    if(counts[0]===3 && counts[1]>=2) return {name:`Full House (${getRankNameShort(highRanks[0])} full of ${getRankNameShort(highRanks[1])}s)`, rank:7, high:highRanks[0]};
+    if(isFlush) return {name:"Flush", rank:6, high:ranks[0]};
+    if(straightCheck && straightCheck.yes) return {name:"Straight", rank:5, high:straightCheck.high};
+    if(counts[0]===3) return {name:`Three of a Kind (${getRankNameShort(highRanks[0])}s)`, rank:4, high:highRanks[0]};
+    if(counts[0]===2 && counts[1]===2) return {name:`Two Pair (${getRankNameShort(highRanks[0])}s and ${getRankNameShort(highRanks[1])}s)`, rank:3, high:highRanks[0]};
+    if(counts[0]===2) return {name:`Pair of ${getRankName(highRanks[0])}`, rank:2, high:highRanks[0]};
+    return {name:"High Card", rank:1, high:ranks[0]};
+}
+
+function determineWinner(myHand, opponentHand) {
+    if (myHand.rank > opponentHand.rank) return { won: true, tie: false };
+    if (myHand.rank < opponentHand.rank) return { won: false, tie: false };
+    if (myHand.high > opponentHand.high) return { won: true, tie: false };
+    if (myHand.high < opponentHand.high) return { won: false, tie: false };
+    return { won: false, tie: true };
+}
+
+function getAllCombinations(arr, k) {
+    if (k === 1) return arr.map(x => [x]);
+    if (k === arr.length) return [arr];
+    const result = [];
+    arr.forEach((elem, i) => {
+        const smallerCombs = getAllCombinations(arr.slice(i+1), k-1);
+        smallerCombs.forEach(comb => result.push([elem, ...comb]));
+    });
+    return result;
+}
+
+function getBestHand(myCards, tableCards) {
+    const allCards = [...(myCards || []), ...(tableCards || [])];
+    if (allCards.length < 5) return evaluateHand(allCards);
+    const combinations = getAllCombinations(allCards, 5);
+    let best = evaluateHand(combinations[0]);
+    combinations.forEach(comb => {
+        const current = evaluateHand(comb);
+        if (current.rank > best.rank || (current.rank === best.rank && current.high > best.high)) {
+            best = current;
+        }
+    });
+    return best;
+}
+
+function calculateWinProbability(myCards, tableCards) {
+    const best = getBestHand(myCards, tableCards);
+    const baseProbs = {1:30, 2:40, 3:50, 4:55, 5:60, 6:65, 7:75, 8:85, 9:92, 10:98};
+    let prob = baseProbs[best.rank] || 50;
+    prob += Math.floor(Math.random() * 10) - 5;
+    return Math.min(98, Math.max(20, prob));
+}
+
 function updateHandInfo() {
     const handDisplay = document.getElementById("current-hand");
     const probDisplay = document.getElementById("win-prob");
     if (!handDisplay || !probDisplay) return;
-    let handName = "High Card";
-    let baseProb = 55;
-    if (myCards && myCards.length === 2) {
-        if (myCards[0].value === myCards[1].value) {
-            handName = `Pair of ${myCards[0].value}s`;
-            baseProb = 65;
-        }
-    }
-    const finalProb = Math.min(98, Math.max(20, baseProb + Math.floor(Math.random() * 10) - 5));
-    handDisplay.textContent = handName;
+    const best = getBestHand(myCards, tableCards);
+    const finalProb = calculateWinProbability(myCards, tableCards);
+    handDisplay.textContent = best.name;
     probDisplay.textContent = `${finalProb}%`;
     probDisplay.style.color = finalProb > 70 ? "#34C759" : finalProb > 40 ? "#FFD60A" : "#FF3B30";
 }
 
 function showBotAction(action) {
-    const modeTitle = document.getElementById("game-mode-title");
-    if (!modeTitle) return;
-    const originalText = modeTitle.textContent;
-    modeTitle.textContent = `Bot_Pro: ${action}`;
-    modeTitle.style.color = "#FFD60A";
-    setTimeout(() => {
-        modeTitle.textContent = originalText;
-        modeTitle.style.color = "";
-    }, 1500);
 }
 
 function nextGamePhase() {
     if (lastActionWasRaise) {
-        showBotAction("Call");
-    } else {
-        const botActions = ["Check", "Check", "Raise 300"];
-        showBotAction(botActions[Math.floor(Math.random() * botActions.length)]);
     }
     lastActionWasRaise = false;
     setTimeout(() => {
@@ -189,9 +321,16 @@ function nextGamePhase() {
             localGamePhase = "showdown";
             showOpponentCards();
             setTimeout(() => {
-                const win = Math.random() > 0.5;
-                if (win) {
-                    myStack += currentPot;
+                const myBestHand = getBestHand(myCards, tableCards);
+                const opponentBestHand = getBestHand(opponentCards, tableCards);
+                const result = determineWinner(myBestHand, opponentBestHand);
+                if (result.won || result.tie) {
+                    if (result.tie) {
+                        myStack += Math.floor(currentPot / 2);
+                        opponentStack += Math.floor(currentPot / 2);
+                    } else {
+                        myStack += currentPot;
+                    }
                     updateStacksDisplay();
                     if (!checkForTournamentWin()) {
                         setTimeout(() => {
@@ -208,15 +347,7 @@ function nextGamePhase() {
                             if (potVal) potVal.textContent = currentPot.toLocaleString();
                             const communal = document.getElementById("communal-cards");
                             if (communal) communal.innerHTML = "";
-                            const oppCards = document.getElementById("opponent-cards-container");
-                            if (oppCards) oppCards.innerHTML = `
-                                <div class="poker-card is-flipped">
-                                    <div class="card-inner"><div class="card-front"></div><div class="card-back">♠</div></div>
-                                </div>
-                                <div class="poker-card is-flipped">
-                                    <div class="card-inner"><div class="card-front"></div><div class="card-back">♠</div></div>
-                                </div>
-                            `;
+                            renderOpponentCardsBacks();
                             renderMyCards();
                             updateHandInfo();
                             updateStacksDisplay();
@@ -240,15 +371,7 @@ function nextGamePhase() {
                             if (potVal) potVal.textContent = currentPot.toLocaleString();
                             const communal = document.getElementById("communal-cards");
                             if (communal) communal.innerHTML = "";
-                            const oppCards = document.getElementById("opponent-cards-container");
-                            if (oppCards) oppCards.innerHTML = `
-                                <div class="poker-card is-flipped">
-                                    <div class="card-inner"><div class="card-front"></div><div class="card-back">♠</div></div>
-                                </div>
-                                <div class="poker-card is-flipped">
-                                    <div class="card-inner"><div class="card-front"></div><div class="card-back">♠</div></div>
-                                </div>
-                            `;
+                            renderOpponentCardsBacks();
                             renderMyCards();
                             updateHandInfo();
                             updateStacksDisplay();
@@ -321,9 +444,6 @@ function showResultModal(message, type) {
             currentTournamentRound++;
             modal.remove();
             updateTournamentBracket();
-            const roundNames = ["ЧЕТВЕРТЬФИНАЛ", "ПОЛУФИНАЛ", "ФИНАЛ"];
-            const gameModeTitle = document.getElementById("game-mode-title");
-            if (gameModeTitle) gameModeTitle.textContent = "ТУРНИР — " + roundNames[currentTournamentRound - 1];
             isTournamentMode = true;
             resetGame();
             showScreenByName("game");
@@ -364,32 +484,6 @@ function updateStacksDisplay() {
     if (oppStackEl) oppStackEl.textContent = opponentStack.toLocaleString();
 }
 
-function resetGame() {
-    fullDeck = createShuffledDeck();
-    deckIndex = 0;
-    localGamePhase = "preflop";
-    tableCards = [];
-    currentPot = smallBlind + bigBlind;
-    myStack -= smallBlind;
-    opponentStack -= bigBlind;
-    myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
-    opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
-    const potVal = document.getElementById("pot-val");
-    if (potVal) potVal.textContent = currentPot.toLocaleString();
-    const communal = document.getElementById("communal-cards");
-    if (communal) communal.innerHTML = "";
-    const oppCards = document.getElementById("opponent-cards-container");
-    if (oppCards) oppCards.innerHTML = `
-        <div class="poker-card is-flipped">
-            <div class="card-inner"><div class="card-front"></div><div class="card-back">♠</div></div>
-        </div>
-        <div class="poker-card is-flipped">
-            <div class="card-inner"><div class="card-front"></div><div class="card-back">♠</div></div>
-        </div>
-    `;
-    updateStacksDisplay();
-}
-
 function checkForTournamentWin() {
     if (myStack <= 0) {
         showResultModal("Ты проиграл все фишки! Поражение в турнире!", "loss");
@@ -406,11 +500,46 @@ function startGame() {
     myStack = 10000;
     opponentStack = 10000;
     resetGame();
-    const gameModeTitle = document.getElementById("game-mode-title");
-    if (gameModeTitle) gameModeTitle.textContent = isTournamentMode ? "ТУРНИР — ЧЕТВЕРТЬФИНАЛ" : "АРЕНА";
     showScreenByName("game");
     renderMyCards();
+    renderOpponentCardsBacks();
     updateHandInfo();
+}
+
+function resetGame() {
+    fullDeck = createShuffledDeck();
+    deckIndex = 0;
+    localGamePhase = "preflop";
+    tableCards = [];
+    currentPot = smallBlind + bigBlind;
+    myStack -= smallBlind;
+    opponentStack -= bigBlind;
+    myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
+    opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
+    const potVal = document.getElementById("pot-val");
+    if (potVal) potVal.textContent = currentPot.toLocaleString();
+    const communal = document.getElementById("communal-cards");
+    if (communal) communal.innerHTML = "";
+    updateStacksDisplay();
+    updateHandInfo();
+}
+
+function renderOpponentCardsBacks() {
+    const container = document.getElementById("opponent-cards-container");
+    if (!container) return;
+    container.innerHTML = "";
+    for (let i = 0; i < 2; i++) {
+        const cardEl = document.createElement("div");
+        cardEl.className = "poker-card";
+        cardEl.style.animationDelay = `${i * 0.15}s`;
+        cardEl.innerHTML = `
+            <div class="card-inner">
+                <div class="card-front"></div>
+                <div class="card-back">♠</div>
+            </div>
+        `;
+        container.appendChild(cardEl);
+    }
 }
 
 function renderCards(cards, containerId, startDelay) {
@@ -420,20 +549,19 @@ function renderCards(cards, containerId, startDelay) {
         const isRed = card.suit === "♥" || card.suit === "♦";
         const colorClass = isRed ? "card-red" : "card-black";
         const cardEl = document.createElement("div");
-        cardEl.className = "poker-card";
+        cardEl.className = "poker-card is-flipped";
         cardEl.style.animationDelay = `${(startDelay || 0) + (index * 0.15)}s`;
         cardEl.innerHTML = `
             <div class="card-inner">
                 <div class="card-front ${colorClass}">
-                    <div>${card.value}</div>
+                    <div style="align-self: flex-start;">${card.value}</div>
                     <div class="card-suit-center">${card.suit}</div>
-                    <div style="transform: rotate(180deg);">${card.value}</div>
+                    <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
                 </div>
                 <div class="card-back">♠</div>
             </div>
         `;
         container.appendChild(cardEl);
-        setTimeout(() => { cardEl.classList.add("is-flipped"); }, 300 + (startDelay * 1000) + (index * 150));
     });
 }
 
@@ -537,11 +665,15 @@ async function handleLogin() {
     const result = await sendRequest("/api/auth/login", { login, password });
     if (result.ok && result.data.success) {
         currentUsername = login;
-        const userNameEl = document.getElementById("user-name");
         const balanceEl = document.getElementById("user-balance");
-        if (userNameEl) userNameEl.textContent = login;
+        const trophiesEl = document.getElementById("user-trophies");
         if (balanceEl && result.data.data) {
-            balanceEl.textContent = result.data.data.balance ? result.data.data.balance.toLocaleString() : "10000";
+            const balance = result.data.data.balance ? result.data.data.balance : 10000;
+            balanceEl.innerHTML = '<span class="icon">🪙</span> ' + balance.toLocaleString();
+        }
+        if (trophiesEl && result.data.data) {
+            const trophies = result.data.data.trophies ? result.data.data.trophies : 0;
+            trophiesEl.innerHTML = '<span class="icon">🏆</span> ' + trophies;
         }
         showScreenByName("menu");
     } else {
@@ -621,22 +753,16 @@ document.addEventListener("DOMContentLoaded", () => {
         btnStartTournament.onclick = () => {
             isTournamentMode = true;
             currentTournamentRound = 1;
-            const gameModeTitle = document.getElementById("game-mode-title");
-            if (gameModeTitle) gameModeTitle.textContent = "ТУРНИР — ЧЕТВЕРТЬФИНАЛ";
             startGame();
         };
     }
 
-    const btnStats = document.getElementById("btn-stats");
-    if (btnStats) btnStats.onclick = () => showScreenByName("stats");
+    const btnOpenStats = document.getElementById("btn-open-stats");
+    if (btnOpenStats) btnOpenStats.onclick = () => showScreenByName("stats");
 
     const btnBackFromStats = document.getElementById("btn-back-from-stats");
     if (btnBackFromStats) btnBackFromStats.onclick = () => showScreenByName("menu");
 
-    const btnOpenSettings = document.getElementById("btn-open-settings");
-    if (btnOpenSettings) btnOpenSettings.onclick = () => showScreenByName("settings");
-
     const btnBackFromSettings = document.getElementById("btn-back-from-settings");
     if (btnBackFromSettings) btnBackFromSettings.onclick = () => showScreenByName("menu");
 });
-
