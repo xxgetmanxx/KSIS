@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,55 +20,14 @@ type ErrorResponse struct {
 }
 
 type SuccessResponse struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
+	Success bool                   `json:"success"`
+	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
 func sendJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
-}
-
-func validateLogin(login string) string {
-	if login == "" {
-		return "Введите логин"
-	}
-	if len(login) < 3 {
-		return "Логин от 3 символов"
-	}
-	if len(login) > 20 {
-		return "Логин до 20 символов"
-	}
-	for _, c := range login {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
-			return "Недопустимые символы"
-		}
-	}
-	return ""
-}
-
-func validatePassword(password string) string {
-	if password == "" {
-		return "Введите пароль"
-	}
-	if len(password) < 4 {
-		return "Пароль от 4 символов"
-	}
-	if len(password) > 50 {
-		return "Пароль до 50 символов"
-	}
-	return ""
-}
-
-func userExists(login string) bool {
-	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)`
-	err := database.DB.QueryRow(query, login).Scan(&exists)
-	if err != nil {
-		return false
-	}
-	return exists
 }
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -81,29 +39,29 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	login := strings.TrimSpace(r.FormValue("login"))
 	password := r.FormValue("password")
 
-	if errMsg := validateLogin(login); errMsg != "" {
-		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: errMsg})
+	if login == "" || password == "" {
+		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Введите логин и пароль"})
 		return
 	}
 
-	if errMsg := validatePassword(password); errMsg != "" {
-		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: errMsg})
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE login = $1)`
+	database.DB.QueryRow(query, login).Scan(&exists)
+
+	if exists {
+		sendJSON(w, http.StatusConflict, ErrorResponse{Error: "Логин уже занят"})
 		return
 	}
 
-	if userExists(login) {
-		sendJSON(w, http.StatusConflict, ErrorResponse{Error: "Логин занят"})
-		return
-	}
-
-	query := `INSERT INTO users (login, password_hash, balance, trophies) VALUES ($1, $2, 10000, 0)`
-	_, err := database.DB.Exec(query, login, hashPassword(password))
+	passwordHash := hashPassword(password)
+	query = `INSERT INTO users (login, password_hash) VALUES ($1, $2)`
+	_, err := database.DB.Exec(query, login, passwordHash)
 	if err != nil {
-		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка создания пользователя"})
+		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка базы данных"})
 		return
 	}
 
-	sendJSON(w, http.StatusCreated, SuccessResponse{Success: true})
+	sendJSON(w, http.StatusOK, SuccessResponse{Success: true})
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -115,36 +73,23 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	login := strings.TrimSpace(r.FormValue("login"))
 	password := r.FormValue("password")
 
-	if errMsg := validateLogin(login); errMsg != "" {
-		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: errMsg})
-		return
-	}
-
-	if password == "" {
-		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Введите пароль"})
-		return
-	}
-
-	if !userExists(login) {
-		sendJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "Неверный логин или пароль"})
+	if login == "" || password == "" {
+		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Введите логин и пароль"})
 		return
 	}
 
 	var storedHash string
-	query := `SELECT password_hash FROM users WHERE login = $1`
-	err := database.DB.QueryRow(query, login).Scan(&storedHash)
-
-	if err != nil || storedHash != hashPassword(password) {
+	var balance, trophies int
+	query := `SELECT password_hash, balance, trophies FROM users WHERE login = $1`
+	err := database.DB.QueryRow(query, login).Scan(&storedHash, &balance, &trophies)
+	if err != nil {
 		sendJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "Неверный логин или пароль"})
 		return
 	}
 
-	var balance, trophies int
-	query = `SELECT balance, trophies FROM users WHERE login = $1`
-	err = database.DB.QueryRow(query, login).Scan(&balance, &trophies)
-	if err != nil {
-		balance = 10000
-		trophies = 0
+	if hashPassword(password) != storedHash {
+		sendJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "Неверный логин или пароль"})
+		return
 	}
 
 	sendJSON(w, http.StatusOK, SuccessResponse{
@@ -268,38 +213,18 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 	potStr := r.FormValue("pot")
 	mode := r.FormValue("mode")
 
-	log.Println("SaveGameResultHandler called:", login, netAmountStr, wonStr, potStr, mode)
-
 	if login == "" {
 		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Логин не указан"})
 		return
 	}
 
 	var netAmount, pot int
-	var won bool
-	var err error
-
-	netAmount, err = strconv.Atoi(netAmountStr)
-	if err != nil {
-		log.Println("Error parsing net_amount:", err)
-		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Некорректный net_amount"})
-		return
-	}
-
-	pot, err = strconv.Atoi(potStr)
-	if err != nil {
-		log.Println("Error parsing pot:", err)
-		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Некорректный pot"})
-		return
-	}
-
-	won = wonStr == "true"
-
-	log.Println("Parsed values:", netAmount, pot, won)
+	netAmount, _ = strconv.Atoi(netAmountStr)
+	pot, _ = strconv.Atoi(potStr)
+	won := wonStr == "true"
 
 	tx, err := database.DB.Begin()
 	if err != nil {
-		log.Println("Error begin tx:", err)
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка базы данных"})
 		return
 	}
@@ -307,24 +232,16 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 
 	var userID int
 	query := `SELECT id FROM users WHERE login = $1`
-	err = tx.QueryRow(query, login).Scan(&userID)
-	if err != nil {
-		log.Println("Error get user id:", err)
+	if err = tx.QueryRow(query, login).Scan(&userID); err != nil {
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Пользователь не найден"})
 		return
 	}
 
 	var botID int
 	query = `SELECT id FROM users WHERE login = 'bot'`
-	err = tx.QueryRow(query).Scan(&botID)
-	if err != nil {
+	if err = tx.QueryRow(query).Scan(&botID); err != nil {
 		query = `INSERT INTO users (login, password_hash) VALUES ('bot', 'bot') RETURNING id`
-		err = tx.QueryRow(query).Scan(&botID)
-		if err != nil {
-			log.Println("Error create bot:", err)
-			sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка создания бота"})
-			return
-		}
+		tx.QueryRow(query).Scan(&botID)
 	}
 
 	var winnerID, loserID int
@@ -337,48 +254,33 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode) VALUES ($1, $2, $3, $4)`
-	_, err = tx.Exec(query, winnerID, loserID, pot, mode)
-	if err != nil {
-		log.Println("Error insert history:", err)
+	if _, err = tx.Exec(query, winnerID, loserID, pot, mode); err != nil {
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка сохранения истории"})
 		return
 	}
 
 	query = `UPDATE users SET balance = balance + $1 WHERE id = $2`
-	_, err = tx.Exec(query, netAmount, userID)
-	if err != nil {
-		log.Println("Error update balance:", err)
+	if _, err = tx.Exec(query, netAmount, userID); err != nil {
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка обновления баланса"})
 		return
 	}
 
 	if won && mode == "Турнир" {
 		query = `UPDATE users SET trophies = trophies + 1 WHERE id = $1`
-		_, err = tx.Exec(query, userID)
-		if err != nil {
-			log.Println("Error update trophies:", err)
-			sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка обновления трофеев"})
-			return
-		}
+		tx.Exec(query, userID)
 	}
 
 	var newBalance, newTrophies int
 	query = `SELECT balance, trophies FROM users WHERE id = $1`
-	err = tx.QueryRow(query, userID).Scan(&newBalance, &newTrophies)
-	if err != nil {
-		log.Println("Error get new balance:", err)
+	if err = tx.QueryRow(query, userID).Scan(&newBalance, &newTrophies); err != nil {
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка получения данных"})
 		return
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		log.Println("Error commit:", err)
+	if err = tx.Commit(); err != nil {
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка коммита"})
 		return
 	}
-
-	log.Println("Success! New balance:", newBalance)
 
 	sendJSON(w, http.StatusOK, SuccessResponse{
 		Success: true,
@@ -388,4 +290,3 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
-
