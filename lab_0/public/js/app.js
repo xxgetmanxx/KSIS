@@ -14,8 +14,12 @@ let smallBlind = 100;
 let bigBlind = 200;
 let currentTournamentRound = 1;
 let isTournamentMode = false;
+let isFriendGame = false;
 let lastActionWasRaise = false;
 let gameResultSaved = false;
+let turnTimeout = null;
+let turnInterval = null;
+let turnSecondsLeft = 0;
 
 function createShuffledDeck() {
     const suits = ["♠", "♥", "♦", "♣"];
@@ -97,18 +101,26 @@ function formatNumber(num) {
 }
 
 function doFold() {
-    saveGameResult(false, currentPot, isTournamentMode ? "Турнир" : "Arena");
-    opponentStack += currentPot;
-    currentPot = 0;
-    updateStacksDisplay();
-    if (!checkForTournamentWin()) {
-        setTimeout(() => resetGame(), 500);
+    if (isFriendGame && ws) {
+        ws.send(JSON.stringify({ action: "fold" }));
+    } else {
+        saveGameResult(false, currentPot, isTournamentMode ? "Турнир" : "Arena");
+        opponentStack += currentPot;
+        currentPot = 0;
+        updateStacksDisplay();
+        if (!checkForTournamentWin()) {
+            setTimeout(() => resetGame(), 500);
+        }
     }
 }
 
 function doCheck() {
-    lastActionWasRaise = false;
-    nextGamePhase();
+    if (isFriendGame && ws) {
+        ws.send(JSON.stringify({ action: "call" }));
+    } else {
+        lastActionWasRaise = false;
+        nextGamePhase();
+    }
 }
 
 function validateAndGetRaiseAmount() {
@@ -126,36 +138,45 @@ function validateAndGetRaiseAmount() {
 }
 
 function doRaise() {
-    lastActionWasRaise = true;
-    let raiseAmount = validateAndGetRaiseAmount();
-    const botCallAmount = Math.min(raiseAmount, opponentStack);
-    myStack -= raiseAmount;
-    myBuyIn += raiseAmount;
-    opponentStack -= botCallAmount;
-    currentPot += raiseAmount + botCallAmount;
-    document.getElementById("pot-val").textContent = currentPot.toLocaleString();
-    updateStacksDisplay();
-    if (myStack <= 0 || opponentStack <= 0) {
-        autoCompleteAllPhases();
+    if (isFriendGame && ws) {
+        let raiseAmount = validateAndGetRaiseAmount();
+        ws.send(JSON.stringify({ action: "raise", amount: raiseAmount }));
     } else {
-        nextGamePhase();
+        lastActionWasRaise = true;
+        let raiseAmount = validateAndGetRaiseAmount();
+        const botCallAmount = Math.min(raiseAmount, opponentStack);
+        myStack -= raiseAmount;
+        myBuyIn += raiseAmount;
+        opponentStack -= botCallAmount;
+        currentPot += raiseAmount + botCallAmount;
+        document.getElementById("pot-val").textContent = currentPot.toLocaleString();
+        updateStacksDisplay();
+        if (myStack <= 0 || opponentStack <= 0) {
+            autoCompleteAllPhases();
+        } else {
+            nextGamePhase();
+        }
     }
 }
 
 function doAllIn() {
-    lastActionWasRaise = true;
-    const raiseAmount = myStack;
-    const botCallAmount = Math.min(raiseAmount, opponentStack);
-    myStack -= raiseAmount;
-    myBuyIn += raiseAmount;
-    opponentStack -= botCallAmount;
-    currentPot += raiseAmount + botCallAmount;
-    document.getElementById("pot-val").textContent = currentPot.toLocaleString();
-    updateStacksDisplay();
-    if (myStack <= 0 || opponentStack <= 0) {
-        autoCompleteAllPhases();
+    if (isFriendGame && ws) {
+        ws.send(JSON.stringify({ action: "raise", amount: myStack }));
     } else {
-        nextGamePhase();
+        lastActionWasRaise = true;
+        const raiseAmount = myStack;
+        const botCallAmount = Math.min(raiseAmount, opponentStack);
+        myStack -= raiseAmount;
+        myBuyIn += raiseAmount;
+        opponentStack -= botCallAmount;
+        currentPot += raiseAmount + botCallAmount;
+        document.getElementById("pot-val").textContent = currentPot.toLocaleString();
+        updateStacksDisplay();
+        if (myStack <= 0 || opponentStack <= 0) {
+            autoCompleteAllPhases();
+        } else {
+            nextGamePhase();
+        }
     }
 }
 
@@ -521,14 +542,19 @@ function checkForTournamentWin() {
 }
 
 function startGame() {
-    myStack = 10000;
-    myBuyIn = 0;
-    opponentStack = 10000;
-    resetGame();
-    showScreenByName("game");
-    renderMyCards();
-    renderOpponentCardsBacks();
-    updateHandInfo();
+    if (isFriendGame) {
+        gameResultSaved = false;
+        showScreenByName("game");
+    } else {
+        myStack = 10000;
+        myBuyIn = 0;
+        opponentStack = 10000;
+        resetGame();
+        showScreenByName("game");
+        renderMyCards();
+        renderOpponentCardsBacks();
+        updateHandInfo();
+    }
 }
 
 function resetGame() {
@@ -879,6 +905,245 @@ document.addEventListener("DOMContentLoaded", () => {
         showScreenByName("stats");
         await loadStats();
     };
+
+    function generateFriendCode() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let code = "";
+        for (let i = 0; i < 4; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    }
+
+    const btnCreateFriend = document.getElementById("btn-create-friend");
+    if (btnCreateFriend) btnCreateFriend.onclick = () => {
+        const code = generateFriendCode();
+        const codeInput = document.getElementById("friend-code-input");
+        if (codeInput) codeInput.value = code;
+        isFriendGame = true;
+        isTournamentMode = false;
+        showWaitingModal(code);
+        connectToWebSocket(code, true);
+    };
+
+    const btnJoinFriend = document.getElementById("btn-join-friend");
+    if (btnJoinFriend) {
+        btnJoinFriend.disabled = false;
+        btnJoinFriend.style.pointerEvents = "auto";
+        btnJoinFriend.onclick = () => {
+            const codeInput = document.getElementById("friend-code-input");
+            if (codeInput && codeInput.value.trim().length === 4) {
+                isFriendGame = true;
+                isTournamentMode = false;
+                showWaitingModal(codeInput.value.trim());
+                connectToWebSocket(codeInput.value.trim(), false);
+            }
+        };
+    }
+
+    const btnCancelWait = document.getElementById("btn-cancel-wait");
+    if (btnCancelWait) btnCancelWait.onclick = () => {
+        hideWaitingModal();
+        if (ws) {
+            ws.close();
+        }
+    };
+
+    function showWaitingModal(code) {
+        const modal = document.getElementById("waiting-modal");
+        const codeDiv = document.getElementById("waiting-code");
+        if (modal && codeDiv) {
+            codeDiv.textContent = code;
+            modal.classList.remove("hidden");
+        }
+    }
+
+    function hideWaitingModal() {
+        const modal = document.getElementById("waiting-modal");
+        if (modal) {
+            modal.classList.add("hidden");
+        }
+    }
+
+    function connectToWebSocket(code, isHost) {
+        if (ws) {
+            ws.close();
+        }
+        ws = new WebSocket(`ws://localhost:8080/ws?user=${currentUsername}`);
+        ws.onopen = () => {
+            if (isHost) {
+                ws.send(JSON.stringify({ action: "create_friend", code: code }));
+            } else {
+                ws.send(JSON.stringify({ action: "join_friend", code: code }));
+            }
+        };
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === "game_start") {
+                hideWaitingModal();
+                startGame();
+            } else if (data.type === "game_state") {
+                hideWaitingModal();
+                updateGameFromState(data);
+            }
+        };
+    }
+
+    function clearTurnTimers() {
+        if (turnTimeout) {
+            clearTimeout(turnTimeout);
+            turnTimeout = null;
+        }
+        if (turnInterval) {
+            clearInterval(turnInterval);
+            turnInterval = null;
+        }
+        const timerEl = document.getElementById("turn-timer");
+        if (timerEl) timerEl.style.display = "none";
+    }
+
+    function autoAction() {
+        console.log("=== autoAction START ===");
+        console.log("  isFriendGame:", isFriendGame);
+        console.log("  ws exists:", !!ws);
+        console.log("  window.lastGameState:", window.lastGameState);
+        
+        if (!isFriendGame || !ws) {
+            console.log("  autoAction cancelled: not friend game or no ws");
+            return;
+        }
+        clearTurnTimers();
+        
+        // Вычисляем callAmount прямо сейчас, чтобы быть уверенными
+        let currentCallAmount = 0;
+        let myBet = 0;
+        let myIsTurnNow = false;
+        if (window.lastGameState && window.lastGameState.players) {
+            const playerIdx = window.lastGameState.players.findIndex(p => p.name === currentUsername);
+            console.log("  playerIdx:", playerIdx);
+            if (playerIdx !== -1) {
+                myBet = window.lastGameState.players[playerIdx].bet;
+                currentCallAmount = window.lastGameState.last_bet - myBet;
+                myIsTurnNow = window.lastGameState.players[playerIdx].is_turn;
+            }
+        }
+        
+        console.log("  myIsTurnNow:", myIsTurnNow);
+        console.log("  currentCallAmount:", currentCallAmount);
+        
+        if (currentCallAmount <= 0) {
+            console.log("  autoAction: sending CALL");
+            ws.send(JSON.stringify({ action: "call" }));
+        } else {
+            console.log("  autoAction: sending FOLD");
+            ws.send(JSON.stringify({ action: "fold" }));
+        }
+        console.log("=== autoAction END ===");
+    }
+
+    function updateGameFromState(state) {
+        console.log("updateGameFromState", state);
+        window.lastGameState = state;
+        showScreenByName("game");
+        currentPot = state.pot;
+        const potVal = document.getElementById("pot-val");
+        if (potVal) potVal.textContent = currentPot.toLocaleString();
+        
+        tableCards = state.table_cards ? state.table_cards.map(c => ({ suit: c.suit, value: c.value })) : [];
+        
+        let myIsTurn = false;
+        let callAmount = 0;
+        let myBet = 0;
+        
+        if (state.players && state.players.length > 0) {
+            const playerIdx = state.players.findIndex(p => p.name === currentUsername);
+            if (playerIdx !== -1) {
+                myCards = state.players[playerIdx].cards ? state.players[playerIdx].cards.map(c => ({ suit: c.suit, value: c.value })) : [];
+                myStack = state.players[playerIdx].chips;
+                myIsTurn = state.players[playerIdx].is_turn;
+                myBet = state.players[playerIdx].bet;
+            }
+            const oppIdx = 1 - playerIdx;
+            if (oppIdx >= 0 && oppIdx < state.players.length) {
+                opponentStack = state.players[oppIdx].chips;
+                if (state.phase === "showdown" || state.phase === "finished") {
+                    opponentCards = state.players[oppIdx].cards ? state.players[oppIdx].cards.map(c => ({ suit: c.suit, value: c.value })) : [];
+                }
+            }
+        }
+        
+        callAmount = state.last_bet - myBet;
+        console.log("myIsTurn", myIsTurn, "callAmount", callAmount, "myBet", myBet, "state.last_bet", state.last_bet);
+        
+        updateStacksDisplay();
+        
+        const myCardsContainer = document.getElementById("my-cards-container");
+        if (myCardsContainer) myCardsContainer.innerHTML = "";
+        renderMyCards();
+        
+        if (state.phase === "showdown" || state.phase === "finished") {
+            showOpponentCards();
+        } else {
+            renderOpponentCardsBacks();
+        }
+        
+        const communal = document.getElementById("communal-cards");
+        if (communal) communal.innerHTML = "";
+        renderTableCards(false);
+        
+        // Обновляем кнопки Check/Call
+        const btnCheck = document.getElementById("btn-check");
+        if (btnCheck) {
+            if (callAmount <= 0) {
+                btnCheck.textContent = "Check";
+            } else {
+                btnCheck.textContent = `Call ${callAmount}`;
+            }
+            btnCheck.disabled = !myIsTurn || (state.phase === "finished");
+        }
+        
+        const btnFold = document.getElementById("btn-fold");
+        if (btnFold) {
+            btnFold.disabled = !myIsTurn || (state.phase === "finished");
+        }
+        
+        const btnRaise = document.getElementById("btn-raise");
+        if (btnRaise) {
+            btnRaise.disabled = !myIsTurn || (state.phase === "finished");
+        }
+        
+        const btnAllIn = document.getElementById("btn-allin");
+        if (btnAllIn) {
+            btnAllIn.disabled = !myIsTurn || (state.phase === "finished");
+        }
+        
+        // Таймер на ход
+        clearTurnTimers();
+        
+        if (myIsTurn && isFriendGame && state.phase !== "finished") {
+            const timerEl = document.getElementById("turn-timer");
+            if (timerEl) {
+                timerEl.style.display = "block";
+                timerEl.textContent = "10";
+            }
+            turnSecondsLeft = 10;
+            
+            turnInterval = setInterval(() => {
+                turnSecondsLeft--;
+                if (timerEl) timerEl.textContent = turnSecondsLeft;
+                if (turnSecondsLeft <= 0) {
+                    clearInterval(turnInterval);
+                }
+            }, 1000);
+            
+            turnTimeout = setTimeout(() => {
+                console.log("Timeout triggered, calling autoAction");
+                autoAction();
+            }, 10000);
+        }
+        
+        updateHandInfo();
+    }
 
     const btnBackFromStats = document.getElementById("btn-back-from-stats");
     if (btnBackFromStats) btnBackFromStats.onclick = () => showScreenByName("menu");

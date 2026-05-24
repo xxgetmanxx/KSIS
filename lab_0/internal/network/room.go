@@ -3,6 +3,7 @@ package network
 import (
 	"encoding/json"
 	"poker-duel/internal/game"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -28,25 +29,27 @@ type GameRoom struct {
 	GamePhase    string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
 	SmallBlind   int
 	BigBlind     int
-	MinBet       int
-	LastBet      int
+	CurrentBet   int
+	LastAction   string // "check", "call", "bet", "raise", "fold", ""
 	DealerPos    int
+	Timer        *time.Timer
+	TimerSeconds int
+	Hub          *Hub // Reference to hub so timeout can send action
 }
 
 func (room *GameRoom) Broadcast(message interface{}) {
-	msg, _ := json.Marshal(message)
 	for _, p := range room.Players {
 		if p.Conn != nil {
-			p.Conn.WriteMessage(websocket.TextMessage, msg)
+			room.SendToPlayer(p, message)
 		}
 	}
 }
 
-func (room *GameRoom) GetGameState() map[string]interface{} {
+func (room *GameRoom) SendToPlayer(player *PlayerState, baseMessage interface{}) {
 	playerInfos := make([]map[string]interface{}, len(room.Players))
 	for i, p := range room.Players {
 		cards := []map[string]interface{}{}
-		if room.GamePhase == "showdown" || room.GamePhase == "finished" {
+		if room.GamePhase == "showdown" || room.GamePhase == "finished" || p.Conn == player.Conn {
 			for _, c := range p.Cards {
 				cards = append(cards, map[string]interface{}{"suit": c.Suit, "value": c.Value})
 			}
@@ -67,17 +70,29 @@ func (room *GameRoom) GetGameState() map[string]interface{} {
 		tableCards = append(tableCards, map[string]interface{}{"suit": c.Suit, "value": c.Value})
 	}
 
-	return map[string]interface{}{
-		"type":         "game_state",
-		"room":         room.ID,
-		"phase":        room.GamePhase,
-		"pot":          room.Pot,
-		"table_cards":  tableCards,
-		"players":      playerInfos,
-		"current_turn": room.CurrentTurn,
-		"min_bet":      room.MinBet,
-		"last_bet":     room.LastBet,
+	fullMsg := make(map[string]interface{})
+	if baseMap, ok := baseMessage.(map[string]interface{}); ok {
+		for k, v := range baseMap {
+			fullMsg[k] = v
+		}
 	}
+	fullMsg["type"] = "game_state"
+	fullMsg["room"] = room.ID
+	fullMsg["phase"] = room.GamePhase
+	fullMsg["pot"] = room.Pot
+	fullMsg["table_cards"] = tableCards
+	fullMsg["players"] = playerInfos
+	fullMsg["current_turn"] = room.CurrentTurn
+	fullMsg["current_bet"] = room.CurrentBet
+	fullMsg["last_action"] = room.LastAction
+	fullMsg["dealer_pos"] = room.DealerPos
+
+	msg, _ := json.Marshal(fullMsg)
+	player.Conn.WriteMessage(websocket.TextMessage, msg)
+}
+
+func (room *GameRoom) GetGameState() map[string]interface{} {
+	return map[string]interface{}{}
 }
 
 func (room *GameRoom) StartGame() {
@@ -85,8 +100,9 @@ func (room *GameRoom) StartGame() {
 	room.Table = []game.Card{}
 	room.Pot = 0
 	room.GamePhase = "preflop"
-	room.LastBet = room.BigBlind
-	room.MinBet = room.BigBlind
+	room.CurrentBet = room.BigBlind
+	room.LastAction = ""
+	room.TimerSeconds = 20
 
 	for i, p := range room.Players {
 		p.Cards = room.Deck[i*2 : (i+1)*2]
@@ -96,9 +112,9 @@ func (room *GameRoom) StartGame() {
 		p.IsTurn = false
 	}
 
-	// Постинг блайндов
-	sbPos := (room.DealerPos + 1) % len(room.Players)
-	bbPos := (room.DealerPos + 2) % len(room.Players)
+	// Heads-Up: Dealer is SB, other is BB
+	sbPos := room.DealerPos
+	bbPos := (room.DealerPos + 1) % 2
 
 	room.Players[sbPos].Bet = room.SmallBlind
 	room.Players[sbPos].Chips -= room.SmallBlind
@@ -106,53 +122,57 @@ func (room *GameRoom) StartGame() {
 	room.Players[bbPos].Chips -= room.BigBlind
 	room.Pot = room.SmallBlind + room.BigBlind
 
-	// Первый ход после блайндов
-	room.CurrentTurn = (room.DealerPos + 3) % len(room.Players)
+	// Preflop: first to act is SB (dealer)
+	room.CurrentTurn = sbPos
 	room.Players[room.CurrentTurn].IsTurn = true
 
+	room.StartTimer()
 	room.Broadcast(room.GetGameState())
 }
 
 func (room *GameRoom) NextPhase() {
+	room.StopTimer()
+
 	switch room.GamePhase {
 	case "preflop":
 		room.GamePhase = "flop"
-		room.Table = append(room.Table, room.Deck[4:7]...) // Flop: 3 карты
+		room.Table = append(room.Table, room.Deck[4:7]...)
 	case "flop":
 		room.GamePhase = "turn"
-		room.Table = append(room.Table, room.Deck[7]) // Turn: 1 карта
+		room.Table = append(room.Table, room.Deck[7])
 	case "turn":
 		room.GamePhase = "river"
-		room.Table = append(room.Table, room.Deck[8]) // River: 1 карта
+		room.Table = append(room.Table, room.Deck[8])
 	case "river":
 		room.GamePhase = "showdown"
 		room.DetermineWinner()
 		return
 	}
 
-	// Сброс ставок для новой фазы
+	// Reset bets for new phase
 	for _, p := range room.Players {
 		p.Bet = 0
 		p.IsTurn = false
 	}
-	room.LastBet = 0
-	room.MinBet = room.BigBlind
-	room.CurrentTurn = (room.DealerPos + 1) % len(room.Players)
-	
-	// Найти первого не фолднувшего игрока
-	for room.Players[room.CurrentTurn].Folded {
-		room.CurrentTurn = (room.CurrentTurn + 1) % len(room.Players)
-	}
+	room.CurrentBet = 0
+	room.LastAction = ""
+
+	// Postflop: first to act is BB
+	bbPos := (room.DealerPos + 1) % 2
+	room.CurrentTurn = bbPos
 	room.Players[room.CurrentTurn].IsTurn = true
 
+	room.StartTimer()
 	room.Broadcast(room.GetGameState())
 }
 
 func (room *GameRoom) PlayerFold(playerIndex int) {
+	room.StopTimer()
 	room.Players[playerIndex].Folded = true
 	room.Players[playerIndex].IsTurn = false
+	room.LastAction = "fold"
 
-	// Проверка, остался ли только один игрок
+	// Check if only one player remains
 	activePlayers := 0
 	winnerIndex := 0
 	for i, p := range room.Players {
@@ -164,7 +184,8 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 
 	if activePlayers == 1 {
 		room.Players[winnerIndex].Chips += room.Pot
-		room.GamePhase = "finished"
+		room.GamePhase = "showdown"
+		room.SwitchDealer()
 		room.Broadcast(room.GetGameState())
 		return
 	}
@@ -172,8 +193,16 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 	room.NextTurn()
 }
 
+func (room *GameRoom) PlayerCheck(playerIndex int) {
+	room.StopTimer()
+	room.Players[playerIndex].IsTurn = false
+	room.LastAction = "check"
+	room.NextTurn()
+}
+
 func (room *GameRoom) PlayerCall(playerIndex int) {
-	callAmount := room.LastBet - room.Players[playerIndex].Bet
+	room.StopTimer()
+	callAmount := room.CurrentBet - room.Players[playerIndex].Bet
 	if callAmount > room.Players[playerIndex].Chips {
 		callAmount = room.Players[playerIndex].Chips
 		room.Players[playerIndex].AllIn = true
@@ -183,15 +212,35 @@ func (room *GameRoom) PlayerCall(playerIndex int) {
 	room.Players[playerIndex].Bet += callAmount
 	room.Pot += callAmount
 	room.Players[playerIndex].IsTurn = false
+	room.LastAction = "call"
+
+	room.NextTurn()
+}
+
+func (room *GameRoom) PlayerBet(playerIndex int, amount int) {
+	room.StopTimer()
+	totalBet := amount
+	betAmount := totalBet - room.Players[playerIndex].Bet
+
+	if betAmount > room.Players[playerIndex].Chips {
+		betAmount = room.Players[playerIndex].Chips
+		room.Players[playerIndex].AllIn = true
+		totalBet = room.Players[playerIndex].Bet + betAmount
+	}
+
+	room.Players[playerIndex].Chips -= betAmount
+	room.Players[playerIndex].Bet = totalBet
+	room.Pot += betAmount
+	room.CurrentBet = totalBet
+	room.Players[playerIndex].IsTurn = false
+	room.LastAction = "bet"
 
 	room.NextTurn()
 }
 
 func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
-	if amount < room.MinBet {
-		amount = room.MinBet
-	}
-	totalBet := room.LastBet + amount
+	room.StopTimer()
+	totalBet := room.CurrentBet + amount
 	raiseAmount := totalBet - room.Players[playerIndex].Bet
 
 	if raiseAmount > room.Players[playerIndex].Chips {
@@ -203,45 +252,66 @@ func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 	room.Players[playerIndex].Chips -= raiseAmount
 	room.Players[playerIndex].Bet = totalBet
 	room.Pot += raiseAmount
-	room.LastBet = totalBet
-	room.MinBet = amount
+	room.CurrentBet = totalBet
 	room.Players[playerIndex].IsTurn = false
+	room.LastAction = "raise"
 
 	room.NextTurn()
 }
 
 func (room *GameRoom) NextTurn() {
-	// Проверить, все ли игроки сделали равные ставки или фолднули
+	// Check if all active players have matched bets or are all-in
 	allMatched := true
 	activeCount := 0
 	for _, p := range room.Players {
 		if !p.Folded {
 			activeCount++
-			if p.Bet != room.LastBet && !p.AllIn {
+			if p.Bet != room.CurrentBet && !p.AllIn {
 				allMatched = false
 			}
 		}
 	}
 
 	if allMatched && activeCount > 1 {
+		// Check if both are all-in, skip to showdown
+		allInCount := 0
+		for _, p := range room.Players {
+			if !p.Folded && p.AllIn {
+				allInCount++
+			}
+		}
+		if allInCount == 2 {
+			// Deal remaining cards and go to showdown
+			if room.GamePhase == "preflop" {
+				room.Table = append(room.Table, room.Deck[4:7]...)
+			}
+			if len(room.Table) < 4 {
+				room.Table = append(room.Table, room.Deck[7])
+			}
+			if len(room.Table) < 5 {
+				room.Table = append(room.Table, room.Deck[8])
+			}
+			room.GamePhase = "showdown"
+			room.DetermineWinner()
+			return
+		}
 		room.NextPhase()
 		return
 	}
 
-	// Найти следующего игрока
-	room.CurrentTurn = (room.CurrentTurn + 1) % len(room.Players)
+	// Find next player
+	room.CurrentTurn = (room.CurrentTurn + 1) % 2
 	for room.Players[room.CurrentTurn].Folded || room.Players[room.CurrentTurn].AllIn {
-		room.CurrentTurn = (room.CurrentTurn + 1) % len(room.Players)
-		if room.CurrentTurn == room.DealerPos {
-			break
-		}
+		room.CurrentTurn = (room.CurrentTurn + 1) % 2
 	}
 	room.Players[room.CurrentTurn].IsTurn = true
 
+	room.StartTimer()
 	room.Broadcast(room.GetGameState())
 }
 
 func (room *GameRoom) DetermineWinner() {
+	room.StopTimer()
 	var winners []int
 	bestRank := -1
 	var bestKickers []int
@@ -257,7 +327,6 @@ func (room *GameRoom) DetermineWinner() {
 			bestKickers = kickers
 			winners = []int{i}
 		} else if rank == bestRank {
-			// Сравниваем кикеры
 			better := false
 			equal := true
 			for j := 0; j < len(kickers) && j < len(bestKickers); j++ {
@@ -279,12 +348,48 @@ func (room *GameRoom) DetermineWinner() {
 		}
 	}
 
-	// Разделить банк между победителями
+	// Split pot
 	prizePerWinner := room.Pot / len(winners)
 	for _, idx := range winners {
 		room.Players[idx].Chips += prizePerWinner
 	}
 
+	room.SwitchDealer()
 	room.GamePhase = "finished"
 	room.Broadcast(room.GetGameState())
+}
+
+func (room *GameRoom) SwitchDealer() {
+	room.DealerPos = (room.DealerPos + 1) % 2
+}
+
+func (room *GameRoom) StartTimer() {
+	room.Timer = time.AfterFunc(time.Duration(room.TimerSeconds)*time.Second, func() {
+		// When timeout happens, we need to hold the hub mutex
+		// So we'll signal the hub to process the timeout action
+		if room.Hub != nil {
+			room.Hub.processTimeout(room.ID)
+		}
+	})
+}
+
+func (room *GameRoom) StopTimer() {
+	if room.Timer != nil {
+		room.Timer.Stop()
+		room.Timer = nil
+	}
+}
+
+func (room *GameRoom) HandleTimeout() {
+	player := room.Players[room.CurrentTurn]
+	if player.Folded || player.AllIn {
+		return
+	}
+
+	// Check if player can check
+	if player.Bet == room.CurrentBet {
+		room.PlayerCheck(room.CurrentTurn)
+	} else {
+		room.PlayerFold(room.CurrentTurn)
+	}
 }

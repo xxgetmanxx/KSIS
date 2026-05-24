@@ -106,7 +106,10 @@
             <div id="opponent-cards-container" class="hand-container"></div>
 
             <div class="table-center">
-                <div style="font-size: 18px; margin-bottom: 15px;">Банк: <span id="pot-val" style="color:var(--accent-success); font-weight:700;">0</span> 🪙</div>
+                <div style="display:flex; justify-content:center; gap:20px; align-items:center; margin-bottom:15px;">
+                    <div style="font-size: 18px;">Банк: <span id="pot-val" style="color:var(--accent-success); font-weight:700;">0</span> 🪙</div>
+                    <div id="turn-timer" style="font-size:24px; font-weight:800; color:#FFD60A; display:none;">10</div>
+                </div>
                 
                 <div id="communal-cards" class="hand-container"></div>
             </div>
@@ -128,7 +131,7 @@
             </div>
         </div>
         
-        <div class="game-controls-below" style="display:flex; justify-content:center; gap:12px; align-items:center; flex-wrap:wrap; margin-top:30px;">
+        <div class="game-controls-below" style="display:flex; justify-content:center; gap:12px; align-items:center; flex-wrap:wrap;">
             <button class="btn-secondary" id="btn-fold" onclick="doFold()" style="min-width:140px;">Fold</button>
             <button class="btn-secondary" id="btn-check" onclick="doCheck()" style="min-width:140px;">Check</button>
             <div style="display:flex; gap:8px; align-items:center;">
@@ -137,6 +140,13 @@
                 <button class="btn-secondary" id="btn-allin" onclick="doAllIn()" style="min-width:140px;">All-In</button>
             </div>
         </div>
+    </div>
+
+    <div id="waiting-modal" class="modal glass-panel" style="padding: 50px; text-align:center;">
+        <h2 style="margin-bottom:20px;">Ожидание игрока</h2>
+        <p style="color:var(--text-secondary); font-size:18px;">Поделитесь кодом комнаты с другом:</p>
+        <div id="waiting-code" style="font-size:48px; font-weight:800; color:var(--accent-primary); margin:30px 0; letter-spacing: 10px;">XXXX</div>
+        <button id="btn-cancel-wait" class="btn-secondary" style="margin-top:20px;">Отмена</button>
     </div>
 
     <div id="stats-screen" class="screen hidden">

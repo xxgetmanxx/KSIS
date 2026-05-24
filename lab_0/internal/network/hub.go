@@ -49,44 +49,59 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) startMatch(mode string, conn1, conn2 *websocket.Conn, smallBlind, bigBlind int) {
-	roomID := fmt.Sprintf("R_%d", rand.Intn(100000))
-	
-	player1 := &PlayerState{
-		Conn:   conn1,
-		Name:   h.Clients[conn1],
-		Cards:  []game.Card{},
-		Chips:  10000,
-		Bet:    0,
-		Folded: false,
-		IsTurn: false,
-		AllIn:  false,
+	var room *GameRoom
+	if mode == "FRIEND" {
+		room, _ = h.getPlayerRoom(conn1)
+		for _, p := range room.Players {
+			p.Cards = []game.Card{}
+			p.Chips = 10000
+			p.Bet = 0
+			p.Folded = false
+			p.IsTurn = false
+			p.AllIn = false
+		}
+	} else {
+		roomID := fmt.Sprintf("R_%d", rand.Intn(100000))
+		room = &GameRoom{
+			ID:         roomID,
+			SmallBlind: smallBlind,
+			BigBlind:   bigBlind,
+			Hub:        h, // Set hub reference for timeout handling
+		}
+		room.Players = []*PlayerState{
+			{
+				Conn:   conn1,
+				Name:   h.Clients[conn1],
+				Cards:  []game.Card{},
+				Chips:  10000,
+				Bet:    0,
+				Folded: false,
+				IsTurn: false,
+				AllIn:  false,
+			},
+			{
+				Conn:   conn2,
+				Name:   h.Clients[conn2],
+				Cards:  []game.Card{},
+				Chips:  10000,
+				Bet:    0,
+				Folded: false,
+				IsTurn: false,
+				AllIn:  false,
+			},
+		}
+		h.Rooms[roomID] = room
 	}
-	player2 := &PlayerState{
-		Conn:   conn2,
-		Name:   h.Clients[conn2],
-		Cards:  []game.Card{},
-		Chips:  10000,
-		Bet:    0,
-		Folded: false,
-		IsTurn: false,
-		AllIn:  false,
+	room.Deck = []game.Card{}
+	room.Table = []game.Card{}
+	room.Pot = 0
+	room.CurrentTurn = 0
+	room.GamePhase = "waiting"
+	room.DealerPos = 0
+	if room.SmallBlind == 0 {
+		room.SmallBlind = smallBlind
+		room.BigBlind = bigBlind
 	}
-
-	room := &GameRoom{
-		ID:          roomID,
-		Players:     []*PlayerState{player1, player2},
-		Deck:        []game.Card{},
-		Table:       []game.Card{},
-		Pot:         0,
-		CurrentTurn: 0,
-		GamePhase:   "waiting",
-		SmallBlind:  smallBlind,
-		BigBlind:    bigBlind,
-		MinBet:      bigBlind,
-		LastBet:     0,
-		DealerPos:   0,
-	}
-	h.Rooms[roomID] = room
 
 	multiplier := 2
 	if mode == "SPIN" {
@@ -94,18 +109,18 @@ func (h *Hub) startMatch(mode string, conn1, conn2 *websocket.Conn, smallBlind, 
 		multiplier = multipliers[rand.Intn(4)]
 	}
 
-	// Отправка начальных данных игрокам
+	// Отправка game_start
 	msg1, _ := json.Marshal(map[string]interface{}{
-		"type": "game_start", "room": roomID, "mode": mode, "multiplier": multiplier,
+		"type": "game_start", "room": room.ID, "mode": mode, "multiplier": multiplier,
 	})
 	msg2, _ := json.Marshal(map[string]interface{}{
-		"type": "game_start", "room": roomID, "mode": mode, "multiplier": multiplier,
+		"type": "game_start", "room": room.ID, "mode": mode, "multiplier": multiplier,
 	})
 
-	player1.Conn.WriteMessage(websocket.TextMessage, msg1)
-	player2.Conn.WriteMessage(websocket.TextMessage, msg2)
+	room.Players[0].Conn.WriteMessage(websocket.TextMessage, msg1)
+	room.Players[1].Conn.WriteMessage(websocket.TextMessage, msg2)
 
-	// Начинаем игру
+	// Запускаем игру и отправляем game_state
 	room.StartGame()
 }
 
@@ -118,6 +133,25 @@ func (h *Hub) getPlayerRoom(conn *websocket.Conn) (*GameRoom, int) {
 		}
 	}
 	return nil, -1
+}
+
+// processTimeout handles timeout actions with proper mutex locking
+func (h *Hub) processTimeout(roomID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	room, ok := h.Rooms[roomID]
+	if !ok {
+		return
+	}
+
+	// Check if the room is still active
+	if room.GamePhase == "finished" || room.GamePhase == "showdown" {
+		return
+	}
+
+	// Process the timeout action
+	room.HandleTimeout()
 }
 
 func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
@@ -154,18 +188,33 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 				hub.SpinQueue = append(hub.SpinQueue, conn)
 			} else if req["action"] == "create_friend" {
 				code := req["code"].(string)
-				room := &GameRoom{ID: code, Deck: game.NewDeck(), GamePhase: "waiting"}
+				room := &GameRoom{ID: code, GamePhase: "waiting", Hub: hub}
+				room.Players = append(room.Players, &PlayerState{
+					Conn:   conn,
+					Name:   hub.Clients[conn],
+					Cards:  []game.Card{},
+					Chips:  10000,
+					Bet:    0,
+					Folded: false,
+					IsTurn: false,
+					AllIn:  false,
+				})
 				hub.Rooms[code] = room
 			} else if req["action"] == "join_friend" {
 				code := req["code"].(string)
 				if room, ok := hub.Rooms[code]; ok && len(room.Players) < 2 {
-					if len(room.Players) == 0 {
+					if len(room.Players) == 1 {
 						room.Players = append(room.Players, &PlayerState{
-							Conn: conn,
-							Name: hub.Clients[conn],
+							Conn:   conn,
+							Name:   hub.Clients[conn],
+							Cards:  []game.Card{},
+							Chips:  10000,
+							Bet:    0,
+							Folded: false,
+							IsTurn: false,
+							AllIn:  false,
 						})
-					} else {
-						hub.startMatch("FRIEND", room.Players[0].Conn, conn, 50, 100)
+						hub.startMatch("FRIEND", room.Players[0].Conn, room.Players[1].Conn, 50, 100)
 					}
 				}
 			} else if req["action"] == "fold" {
@@ -173,10 +222,24 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 				if room != nil && playerIdx != -1 && room.Players[playerIdx].IsTurn {
 					room.PlayerFold(playerIdx)
 				}
+			} else if req["action"] == "check" {
+				room, playerIdx := hub.getPlayerRoom(conn)
+				if room != nil && playerIdx != -1 && room.Players[playerIdx].IsTurn {
+					room.PlayerCheck(playerIdx)
+				}
 			} else if req["action"] == "call" {
 				room, playerIdx := hub.getPlayerRoom(conn)
 				if room != nil && playerIdx != -1 && room.Players[playerIdx].IsTurn {
 					room.PlayerCall(playerIdx)
+				}
+			} else if req["action"] == "bet" {
+				room, playerIdx := hub.getPlayerRoom(conn)
+				if room != nil && playerIdx != -1 && room.Players[playerIdx].IsTurn {
+					amount := 0
+					if amt, ok := req["amount"].(float64); ok {
+						amount = int(amt)
+					}
+					room.PlayerBet(playerIdx, amount)
 				}
 			} else if req["action"] == "raise" {
 				room, playerIdx := hub.getPlayerRoom(conn)
