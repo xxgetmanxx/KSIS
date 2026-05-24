@@ -98,16 +98,17 @@ function formatNumber(num) {
 
 function doFold() {
     saveGameResult(false, currentPot, isTournamentMode ? "Турнир" : "Arena");
-    showResultModal("Ты сбросил карты! Поражение.", "loss");
+    opponentStack += currentPot;
+    currentPot = 0;
+    updateStacksDisplay();
+    if (!checkForTournamentWin()) {
+        setTimeout(() => resetGame(), 500);
+    }
 }
 
 function doCheck() {
     lastActionWasRaise = false;
-    if (myStack <= 0 || opponentStack <= 0) {
-        autoCompleteAllPhases();
-    } else {
-        nextGamePhase();
-    }
+    nextGamePhase();
 }
 
 function validateAndGetRaiseAmount() {
@@ -181,8 +182,6 @@ function autoCompleteAllPhases() {
             const myBestHand = getBestHand(myCards, tableCards);
             const opponentBestHand = getBestHand(opponentCards, tableCards);
             const result = determineWinner(myBestHand, opponentBestHand);
-            let gameWon = result.won || result.tie;
-            let netAmount = result.tie ? Math.floor(currentPot / 2) - (smallBlind + bigBlind) : (gameWon ? currentPot : -(smallBlind + bigBlind));
             
             if (result.won || result.tie) {
                 if (result.tie) {
@@ -192,11 +191,15 @@ function autoCompleteAllPhases() {
                     myStack += currentPot;
                 }
                 updateStacksDisplay();
-                checkForTournamentWin();
+                if (!checkForTournamentWin()) {
+                    setTimeout(() => resetGame(), 1500);
+                }
             } else {
                 opponentStack += currentPot;
                 updateStacksDisplay();
-                checkForTournamentWin();
+                if (!checkForTournamentWin()) {
+                    setTimeout(() => resetGame(), 1500);
+                }
             }
             
             saveGameResult(result.won, currentPot, isTournamentMode ? "Турнир" : "Arena");
@@ -499,11 +502,19 @@ function updateStacksDisplay() {
 
 function checkForTournamentWin() {
     if (myStack <= 0) {
-        showResultModal("Ты проиграл все фишки! Поражение в турнире!", "loss");
+        if (isTournamentMode) {
+            showResultModal("Ты проиграл все фишки! Поражение в турнире!", "loss");
+        } else {
+            showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
+        }
         return true;
     }
     if (opponentStack <= 0) {
-        showResultModal("Ты забрал все фишки соперника! Победа в раунде!", "win");
+        if (isTournamentMode) {
+            showResultModal("Ты забрал все фишки соперника! Победа в раунде!", "win");
+        } else {
+            showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
+        }
         return true;
     }
     return false;
@@ -538,6 +549,8 @@ function resetGame() {
     if (communal) communal.innerHTML = "";
     updateStacksDisplay();
     updateHandInfo();
+    renderMyCards();
+    renderOpponentCardsBacks();
 }
 
 function renderOpponentCardsBacks() {
