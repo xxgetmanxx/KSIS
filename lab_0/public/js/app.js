@@ -987,6 +987,12 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (data.type === "game_state") {
                 hideWaitingModal();
                 updateGameFromState(data);
+            } else if (data.type === "game_over") {
+                if (data.won) {
+                    showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
+                } else {
+                    showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
+                }
             }
         };
     }

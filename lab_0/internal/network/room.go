@@ -191,6 +191,33 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 		room.GamePhase = "showdown"
 		room.SwitchDealer()
 		room.Broadcast(room.GetGameState())
+
+		// Check if any player has 0 or less chips
+		gameOver := false
+		var loserIndex int
+		for i, p := range room.Players {
+			if p.Chips <= 0 {
+				gameOver = true
+				loserIndex = i
+				break
+			}
+		}
+
+		if gameOver {
+			// Send game_over message to both players
+			for i, p := range room.Players {
+				if p.Conn != nil {
+					won := i != loserIndex
+					msg, _ := json.Marshal(map[string]interface{}{
+						"type": "game_over",
+						"won":  won,
+					})
+					p.Conn.WriteMessage(websocket.TextMessage, msg)
+				}
+			}
+			return
+		}
+
 		// Start new round after a short delay
 		time.AfterFunc(2*time.Second, func() {
 			room.StartGame()
@@ -275,25 +302,23 @@ func (room *GameRoom) NextTurn() {
 	// Check if all active players have matched bets or are all-in AND both have acted
 	allMatched := true
 	activeCount := 0
+	allInCount := 0
 	for _, p := range room.Players {
 		if !p.Folded {
 			activeCount++
 			if p.Bet != room.CurrentBet && !p.AllIn {
 				allMatched = false
 			}
+			if p.AllIn {
+				allInCount++
+			}
 		}
 	}
 
 	if allMatched && activeCount > 1 && room.PlayersActed >= 2 {
-		// Check if both are all-in, skip to showdown
-		allInCount := 0
-		for _, p := range room.Players {
-			if !p.Folded && p.AllIn {
-				allInCount++
-			}
-		}
-		if allInCount == 2 {
-			// Deal remaining cards and go to showdown
+		// If any player is all-in, deal remaining cards immediately and go to showdown
+		if allInCount >= 1 {
+			// Deal remaining cards
 			if room.GamePhase == "preflop" {
 				room.Table = append(room.Table, room.Deck[4:7]...)
 			}
@@ -311,10 +336,36 @@ func (room *GameRoom) NextTurn() {
 		return
 	}
 
-	// Find next player
+	// Find next player (skip folded or all-in players)
 	room.CurrentTurn = (room.CurrentTurn + 1) % 2
 	for room.Players[room.CurrentTurn].Folded || room.Players[room.CurrentTurn].AllIn {
 		room.CurrentTurn = (room.CurrentTurn + 1) % 2
+		// If we looped back and everyone is folded/all-in, check if we need to deal remaining cards
+		if room.Players[room.CurrentTurn].Folded || room.Players[room.CurrentTurn].AllIn {
+			// Check if there are active players left
+			anyActive := false
+			for _, p := range room.Players {
+				if !p.Folded && !p.AllIn {
+					anyActive = true
+					break
+				}
+			}
+			if !anyActive {
+				// Deal remaining cards and go to showdown
+				if room.GamePhase == "preflop" {
+					room.Table = append(room.Table, room.Deck[4:7]...)
+				}
+				if len(room.Table) < 4 {
+					room.Table = append(room.Table, room.Deck[7])
+				}
+				if len(room.Table) < 5 {
+					room.Table = append(room.Table, room.Deck[8])
+				}
+				room.GamePhase = "showdown"
+				room.DetermineWinner()
+				return
+			}
+		}
 	}
 	room.Players[room.CurrentTurn].IsTurn = true
 
@@ -369,6 +420,33 @@ func (room *GameRoom) DetermineWinner() {
 	room.SwitchDealer()
 	room.GamePhase = "finished"
 	room.Broadcast(room.GetGameState())
+
+	// Check if any player has 0 or less chips
+	gameOver := false
+	var loserIndex int
+	for i, p := range room.Players {
+		if p.Chips <= 0 {
+			gameOver = true
+			loserIndex = i
+			break
+		}
+	}
+
+	if gameOver {
+		// Send game_over message to both players
+		for i, p := range room.Players {
+			if p.Conn != nil {
+				won := i != loserIndex
+				msg, _ := json.Marshal(map[string]interface{}{
+					"type": "game_over",
+					"won":  won,
+				})
+				p.Conn.WriteMessage(websocket.TextMessage, msg)
+			}
+		}
+		return
+	}
+
 	// Start new round after a short delay
 	time.AfterFunc(2*time.Second, func() {
 		room.StartGame()
