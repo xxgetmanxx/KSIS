@@ -13,8 +13,8 @@
             <h1 class="brand-title">Poker Duel</h1>
             <div id="auth-error" class="auth-error hidden" style="color:#FF3B30; font-size:14px; margin-bottom:20px; padding:12px; border-radius:12px; background:rgba(255,59,48,0.1); border:1px solid rgba(255,59,48,0.3);"></div>
             <div class="input-group">
-                <input type="text" id="username" placeholder="Логин" autocomplete="off">
-                <input type="password" id="password" placeholder="Пароль">
+                <input type="text" id="username" placeholder="Логин" autocomplete="off" data-1p-ignore data-lpignore="true">
+                <input type="password" id="password" placeholder="Пароль" autocomplete="off" data-1p-ignore data-lpignore="true">
             </div>
             <button id="btn-login" class="btn-primary" style="width:100%;">Войти</button>
             <button id="btn-reg" class="btn-secondary" style="margin-top: 12px; width: 100%;">Создать аккаунт</button>
@@ -142,12 +142,7 @@
         </div>
     </div>
 
-    <div id="waiting-modal" class="modal glass-panel" style="padding: 50px; text-align:center;">
-        <h2 style="margin-bottom:20px;">Ожидание игрока</h2>
-        <p style="color:var(--text-secondary); font-size:18px;">Поделитесь кодом комнаты с другом:</p>
-        <div id="waiting-code" style="font-size:48px; font-weight:800; color:var(--accent-primary); margin:30px 0; letter-spacing: 10px;">XXXX</div>
-        <button id="btn-cancel-wait" class="btn-secondary" style="margin-top:20px;">Отмена</button>
-    </div>
+
 
     <div id="stats-screen" class="screen hidden">
         <div class="stats-container glass-panel" style="padding:40px; max-width:900px; width:90%;">

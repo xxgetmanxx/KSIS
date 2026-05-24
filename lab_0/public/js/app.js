@@ -924,7 +924,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (codeInput) codeInput.value = code;
         isFriendGame = true;
         isTournamentMode = false;
-        showWaitingModal(code);
         connectToWebSocket(code, true);
     };
 
@@ -937,34 +936,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (codeInput && codeInput.value.trim().length === 4) {
                 isFriendGame = true;
                 isTournamentMode = false;
-                showWaitingModal(codeInput.value.trim());
                 connectToWebSocket(codeInput.value.trim(), false);
             }
         };
-    }
-
-    const btnCancelWait = document.getElementById("btn-cancel-wait");
-    if (btnCancelWait) btnCancelWait.onclick = () => {
-        hideWaitingModal();
-        if (ws) {
-            ws.close();
-        }
-    };
-
-    function showWaitingModal(code) {
-        const modal = document.getElementById("waiting-modal");
-        const codeDiv = document.getElementById("waiting-code");
-        if (modal && codeDiv) {
-            codeDiv.textContent = code;
-            modal.classList.remove("hidden");
-        }
-    }
-
-    function hideWaitingModal() {
-        const modal = document.getElementById("waiting-modal");
-        if (modal) {
-            modal.classList.add("hidden");
-        }
     }
 
     function connectToWebSocket(code, isHost) {
@@ -982,10 +956,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "game_start") {
-                hideWaitingModal();
                 startGame();
             } else if (data.type === "game_state") {
-                hideWaitingModal();
                 updateGameFromState(data);
             } else if (data.type === "game_over") {
                 if (data.won) {
