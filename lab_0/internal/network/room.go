@@ -20,21 +20,22 @@ type PlayerState struct {
 }
 
 type GameRoom struct {
-	ID           string
-	Players      []*PlayerState
-	Deck         []game.Card
-	Table        []game.Card
-	Pot          int
-	CurrentTurn  int
-	GamePhase    string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
-	SmallBlind   int
-	BigBlind     int
-	CurrentBet   int
-	LastAction   string // "check", "call", "bet", "raise", "fold", ""
-	DealerPos    int
-	Timer        *time.Timer
-	TimerSeconds int
-	Hub          *Hub // Reference to hub so timeout can send action
+	ID            string
+	Players       []*PlayerState
+	Deck          []game.Card
+	Table         []game.Card
+	Pot           int
+	CurrentTurn   int
+	GamePhase     string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
+	SmallBlind    int
+	BigBlind      int
+	CurrentBet    int
+	LastAction    string // "check", "call", "bet", "raise", "fold", ""
+	DealerPos     int
+	Timer         *time.Timer
+	TimerSeconds  int
+	Hub           *Hub // Reference to hub so timeout can send action
+	PlayersActed  int  // Number of players who have acted in current betting round
 }
 
 func (room *GameRoom) Broadcast(message interface{}) {
@@ -84,6 +85,7 @@ func (room *GameRoom) SendToPlayer(player *PlayerState, baseMessage interface{})
 	fullMsg["players"] = playerInfos
 	fullMsg["current_turn"] = room.CurrentTurn
 	fullMsg["current_bet"] = room.CurrentBet
+	fullMsg["last_bet"] = room.CurrentBet
 	fullMsg["last_action"] = room.LastAction
 	fullMsg["dealer_pos"] = room.DealerPos
 
@@ -103,6 +105,7 @@ func (room *GameRoom) StartGame() {
 	room.CurrentBet = room.BigBlind
 	room.LastAction = ""
 	room.TimerSeconds = 20
+	room.PlayersActed = 0
 
 	for i, p := range room.Players {
 		p.Cards = room.Deck[i*2 : (i+1)*2]
@@ -156,6 +159,7 @@ func (room *GameRoom) NextPhase() {
 	}
 	room.CurrentBet = 0
 	room.LastAction = ""
+	room.PlayersActed = 0
 
 	// Postflop: first to act is BB
 	bbPos := (room.DealerPos + 1) % 2
@@ -187,6 +191,10 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 		room.GamePhase = "showdown"
 		room.SwitchDealer()
 		room.Broadcast(room.GetGameState())
+		// Start new round after a short delay
+		time.AfterFunc(2*time.Second, func() {
+			room.StartGame()
+		})
 		return
 	}
 
@@ -196,6 +204,7 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 func (room *GameRoom) PlayerCheck(playerIndex int) {
 	room.StopTimer()
 	room.Players[playerIndex].IsTurn = false
+	room.PlayersActed++
 	room.LastAction = "check"
 	room.NextTurn()
 }
@@ -212,6 +221,7 @@ func (room *GameRoom) PlayerCall(playerIndex int) {
 	room.Players[playerIndex].Bet += callAmount
 	room.Pot += callAmount
 	room.Players[playerIndex].IsTurn = false
+	room.PlayersActed++
 	room.LastAction = "call"
 
 	room.NextTurn()
@@ -233,6 +243,7 @@ func (room *GameRoom) PlayerBet(playerIndex int, amount int) {
 	room.Pot += betAmount
 	room.CurrentBet = totalBet
 	room.Players[playerIndex].IsTurn = false
+	room.PlayersActed = 1
 	room.LastAction = "bet"
 
 	room.NextTurn()
@@ -254,13 +265,14 @@ func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 	room.Pot += raiseAmount
 	room.CurrentBet = totalBet
 	room.Players[playerIndex].IsTurn = false
+	room.PlayersActed = 1
 	room.LastAction = "raise"
 
 	room.NextTurn()
 }
 
 func (room *GameRoom) NextTurn() {
-	// Check if all active players have matched bets or are all-in
+	// Check if all active players have matched bets or are all-in AND both have acted
 	allMatched := true
 	activeCount := 0
 	for _, p := range room.Players {
@@ -272,7 +284,7 @@ func (room *GameRoom) NextTurn() {
 		}
 	}
 
-	if allMatched && activeCount > 1 {
+	if allMatched && activeCount > 1 && room.PlayersActed >= 2 {
 		// Check if both are all-in, skip to showdown
 		allInCount := 0
 		for _, p := range room.Players {
@@ -357,6 +369,10 @@ func (room *GameRoom) DetermineWinner() {
 	room.SwitchDealer()
 	room.GamePhase = "finished"
 	room.Broadcast(room.GetGameState())
+	// Start new round after a short delay
+	time.AfterFunc(2*time.Second, func() {
+		room.StartGame()
+	})
 }
 
 func (room *GameRoom) SwitchDealer() {

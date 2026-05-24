@@ -106,11 +106,13 @@ function doFold() {
     } else {
         saveGameResult(false, currentPot, isTournamentMode ? "Турнир" : "Arena");
         opponentStack += currentPot;
-        currentPot = 0;
         updateStacksDisplay();
-        if (!checkForTournamentWin()) {
-            setTimeout(() => resetGame(), 500);
+        if (isTournamentMode) {
+            if (checkForTournamentWin()) {
+                return;
+            }
         }
+        setTimeout(() => resetGame(), 500);
     }
 }
 

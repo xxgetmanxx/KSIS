@@ -232,3 +232,8 @@ body::after {
 #history-list::-webkit-scrollbar-thumb:hover {
     background: rgba(255,255,255,0.3);
 }
+
+.game-controls-below {
+    margin-top: 50px;
+    padding-bottom: 30px;
+}
