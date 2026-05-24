@@ -702,6 +702,7 @@ async function sendRequest(url, data) {
 }
 
 async function saveGameResult(won, pot, mode) {
+    console.log("saveGameResult called:", { won, pot, mode, currentUsername, gameResultSaved });
     if (!currentUsername || gameResultSaved) return;
     gameResultSaved = true;
     
@@ -720,12 +721,14 @@ async function saveGameResult(won, pot, mode) {
     formData.append("mode", mode);
 
     try {
+        console.log("Sending save-result request with:", formData);
         const response = await fetch("/api/game/save-result", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: formData
         });
         const json = await response.json();
+        console.log("save-result response:", json);
         
         if (json.success && json.data) {
             const newBalance = json.data.balance;
@@ -742,6 +745,7 @@ async function saveGameResult(won, pot, mode) {
             }
         }
     } catch (e) {
+        console.error("save-result error:", e);
     }
 }
 
@@ -907,6 +911,39 @@ document.addEventListener("DOMContentLoaded", () => {
         showScreenByName("stats");
         await loadStats();
     };
+
+    let selectedDifficulty = "MEDIUM";
+    const dropdown = document.querySelector(".custom-dropdown");
+    const dropdownSelected = document.getElementById("dropdown-selected");
+    const dropdownMenu = document.getElementById("dropdown-menu");
+    const dropdownItems = document.querySelectorAll(".dropdown-item");
+
+    if (dropdownSelected && dropdownMenu) {
+        dropdownSelected.addEventListener("click", (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle("open");
+        });
+
+        dropdownItems.forEach((item) => {
+            item.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const value = item.dataset.value;
+                const text = item.textContent;
+                
+                selectedDifficulty = value;
+                dropdownSelected.textContent = text;
+                
+                dropdownItems.forEach((i) => i.classList.remove("active"));
+                item.classList.add("active");
+                
+                dropdown.classList.remove("open");
+            });
+        });
+
+        document.addEventListener("click", () => {
+            dropdown.classList.remove("open");
+        });
+    }
 
     function generateFriendCode() {
         const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

@@ -141,6 +141,79 @@ body::after {
 .friend-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: stretch; }
 .friend-actions .btn-secondary, .friend-actions .code-input { min-height: 50px; }
 .code-input { background: rgba(0, 0, 0, 0.2); border: 1px solid var(--glass-border); color: white; border-radius: 12px; padding: 12px; text-align: center; font-weight: 700; text-transform: uppercase; outline: none; width: 100%; }
+
+.custom-dropdown {
+    position: relative;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.dropdown-selected {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 14px;
+    color: white;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.dropdown-selected:hover {
+    border-color: rgba(255,255,255,0.2);
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.03));
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, rgba(26,31,34,0.98), rgba(18,22,25,0.98));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    z-index: 1000;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+}
+
+.custom-dropdown.open .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-item {
+    padding: 14px 16px;
+    border-radius: 10px;
+    color: white;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.dropdown-item:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.dropdown-item.active {
+    background: linear-gradient(135deg, rgba(0,113,227,0.3), rgba(0,113,227,0.15));
+    color: white;
+}
 .code-input::-webkit-outer-spin-button,
 .code-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .code-input { -moz-appearance: textfield; }

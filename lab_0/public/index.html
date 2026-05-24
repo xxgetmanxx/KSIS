@@ -50,11 +50,16 @@
             <div class="game-card glass-panel tournaments">
                 <h2>Турнирная Сетка (8 мест)</h2>
                 <p>Выберите сложность оппонентов ИИ для заполнения сетки:</p>
-                <select id="bot-difficulty" class="code-input" style="margin-bottom:15px; width:100%; font-size:14px;">
-                    <option value="EASY">Низкая (Easy Bot)</option>
-                    <option value="MEDIUM" selected>Средняя (Medium Bot)</option>
-                    <option value="HARD">Высокая (Hard Bot Pro)</option>
-                </select>
+                <div class="custom-dropdown">
+                    <div class="dropdown-selected" id="dropdown-selected">
+                        Средняя (Medium Bot)
+                    </div>
+                    <div class="dropdown-menu" id="dropdown-menu">
+                        <div class="dropdown-item" data-value="EASY">Низкая (Easy Bot)</div>
+                        <div class="dropdown-item active" data-value="MEDIUM">Средняя (Medium Bot)</div>
+                        <div class="dropdown-item" data-value="HARD">Высокая (Hard Bot Pro)</div>
+                    </div>
+                </div>
                 <button id="btn-tourney" class="btn-action" style="width:100%;">Запустить Турнир</button>
             </div>
 

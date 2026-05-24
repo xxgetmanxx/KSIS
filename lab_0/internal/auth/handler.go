@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -225,14 +226,16 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := database.DB.Begin()
 	if err != nil {
+		log.Println("DB Begin error:", err)
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка базы данных"})
 		return
 	}
-	defer tx.Rollback()
 
 	var userID int
 	query := `SELECT id FROM users WHERE login = $1`
 	if err = tx.QueryRow(query, login).Scan(&userID); err != nil {
+		log.Println("Get user ID error:", err)
+		tx.Rollback()
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Пользователь не найден"})
 		return
 	}
@@ -241,7 +244,12 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 	query = `SELECT id FROM users WHERE login = 'bot'`
 	if err = tx.QueryRow(query).Scan(&botID); err != nil {
 		query = `INSERT INTO users (login, password_hash) VALUES ('bot', 'bot') RETURNING id`
-		tx.QueryRow(query).Scan(&botID)
+		if err = tx.QueryRow(query).Scan(&botID); err != nil {
+			log.Println("Insert bot error:", err)
+			tx.Rollback()
+			sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка создания бота"})
+			return
+		}
 	}
 
 	var winnerID, loserID int
@@ -255,29 +263,38 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 
 	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode) VALUES ($1, $2, $3, $4)`
 	if _, err = tx.Exec(query, winnerID, loserID, pot, mode); err != nil {
+		log.Println("Insert history error:", err)
+		tx.Rollback()
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка сохранения истории"})
 		return
 	}
 
 	query = `UPDATE users SET balance = balance + $1 WHERE id = $2`
 	if _, err = tx.Exec(query, netAmount, userID); err != nil {
+		log.Println("Update balance error:", err)
+		tx.Rollback()
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка обновления баланса"})
 		return
 	}
 
 	if won && mode == "Турнир" {
 		query = `UPDATE users SET trophies = trophies + 1 WHERE id = $1`
-		tx.Exec(query, userID)
+		if _, err = tx.Exec(query, userID); err != nil {
+			log.Println("Update trophies error:", err)
+		}
 	}
 
 	var newBalance, newTrophies int
 	query = `SELECT balance, trophies FROM users WHERE id = $1`
 	if err = tx.QueryRow(query, userID).Scan(&newBalance, &newTrophies); err != nil {
+		log.Println("Get new balance error:", err)
+		tx.Rollback()
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка получения данных"})
 		return
 	}
 
 	if err = tx.Commit(); err != nil {
+		log.Println("Commit error:", err)
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка коммита"})
 		return
 	}
