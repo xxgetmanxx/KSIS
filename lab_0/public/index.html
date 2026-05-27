@@ -42,8 +42,7 @@
             </div>
 
             <div class="game-card glass-panel spin">
-                <h2>Spin & Duel</h2>
-                <p>Вход 1000 фишек. Множитель куша от x2 до x10 выбирается случайно перед раздачей!</p>
+                <h2 class="spin-title">Спины</h2>
                 <button id="btn-spin" class="btn-action">Испытать удачу</button>
             </div>
 
@@ -99,7 +98,20 @@
 
     <div id="game-screen" class="screen hidden">
         <div id="spin-overlay" class="spin-anim hidden">
-            <div class="spin-box">ОПРЕДЕЛЕНИЕ КУША: <span id="spin-multiplier">x2</span></div>
+            <div class="spin-wheel-container">
+                <div class="spin-wheel" id="spin-wheel">
+                    <div class="wheel-segment s1" data-value="1.5"><span>x1.5</span></div>
+                    <div class="wheel-segment s2" data-value="2"><span>x2</span></div>
+                    <div class="wheel-segment s3" data-value="2.5"><span>x2.5</span></div>
+                    <div class="wheel-segment s4" data-value="3"><span>x3</span></div>
+                    <div class="wheel-segment s5" data-value="1"><span>x1</span></div>
+                    <div class="wheel-segment s6" data-value="2.2"><span>x2.2</span></div>
+                    <div class="wheel-segment s7" data-value="2.8"><span>x2.8</span></div>
+                    <div class="wheel-segment s8" data-value="3.5"><span>x3.5</span></div>
+                </div>
+                <div class="wheel-pointer"></div>
+            </div>
+            <div class="spin-result hidden" id="spin-result">Множитель: <span id="spin-multiplier">x2</span></div>
         </div>
 
         <div class="poker-table-matte narrow-table">

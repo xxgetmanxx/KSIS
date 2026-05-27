@@ -134,6 +134,7 @@ body::after {
 .game-card { padding: 32px; display: flex; flex-direction: column; justify-content: space-between; min-height: 250px; transition: transform 0.3s, border-color 0.3s; }
 .game-card:hover { transform: translateY(-4px); border-color: rgba(255, 255, 255, 0.2); }
 .game-card h2 { font-size: 24px; font-weight: 600; margin-bottom: 12px; letter-spacing: -0.5px; }
+.game-card .spin-title { font-size: 32px; font-weight: 700; }
 .game-card p { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
 .btn-action { background: #FFFFFF; color: #000; border: none; padding: 14px; border-radius: 14px; font-weight: 600; cursor: pointer; font-size: 15px; text-align: center; transition: all 0.2s; }
 .btn-action:hover { background: #f5f5f7; transform: scale(1.02); }
@@ -278,8 +279,101 @@ body::after {
     to { transform: translateY(0) rotate(0deg) scale(1); opacity: 1; }
 }
 
-.spin-anim { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(5, 8, 6, 0.85); backdrop-filter: blur(15px); z-index: 100; display: flex; justify-content: center; align-items: center; }
-.spin-box { font-size: 32px; font-weight: 800; border: 1px solid rgba(255,255,255,0.1); padding: 35px 70px; border-radius: 24px; background: rgba(255,255,255,0.03); animation: pulse 0.6s infinite alternate; }
+.spin-anim { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(7, 15, 10, 0.95); backdrop-filter: blur(20px); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px; }
+.spin-wheel-container { position: relative; width: 380px; height: 380px; }
+.spin-wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(
+        rgba(25, 35, 28, 0.9) 0deg 45deg,
+        rgba(35, 50, 40, 0.85) 45deg 90deg,
+        rgba(25, 35, 28, 0.9) 90deg 135deg,
+        rgba(35, 50, 40, 0.85) 135deg 180deg,
+        rgba(25, 35, 28, 0.9) 180deg 225deg,
+        rgba(35, 50, 40, 0.85) 225deg 270deg,
+        rgba(25, 35, 28, 0.9) 270deg 315deg,
+        rgba(35, 50, 40, 0.85) 315deg 360deg
+    );
+    border: 3px solid rgba(52, 199, 89, 0.35);
+    box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.2),
+                0 30px 80px rgba(52, 199, 89, 0.35),
+                inset 0 0 60px rgba(255, 255, 255, 0.12),
+                inset 0 0 40px rgba(52, 199, 89, 0.15),
+                inset -20px -20px 50px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: visible;
+    backdrop-filter: blur(25px) saturate(200%);
+    -webkit-backdrop-filter: blur(25px) saturate(200%);
+}
+.wheel-segment {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    left: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 900;
+    color: white;
+    text-shadow: 3px 3px 10px rgba(0, 0, 0, 1), 0 0 15px rgba(52, 199, 89, 0.6);
+    letter-spacing: 0.5px;
+}
+.wheel-segment span {
+    position: absolute;
+    width: auto;
+    height: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+.wheel-segment.s1 { transform: rotate(0deg); }
+.wheel-segment.s1 span { transform: rotate(0deg) translateY(-150px); }
+.wheel-segment.s2 { transform: rotate(45deg); }
+.wheel-segment.s2 span { transform: rotate(-45deg) translateY(-150px); }
+.wheel-segment.s3 { transform: rotate(90deg); }
+.wheel-segment.s3 span { transform: rotate(-90deg) translateY(-150px); }
+.wheel-segment.s4 { transform: rotate(135deg); }
+.wheel-segment.s4 span { transform: rotate(-135deg) translateY(-150px); }
+.wheel-segment.s5 { transform: rotate(180deg); }
+.wheel-segment.s5 span { transform: rotate(-180deg) translateY(-150px); }
+.wheel-segment.s6 { transform: rotate(225deg); }
+.wheel-segment.s6 span { transform: rotate(-225deg) translateY(-150px); }
+.wheel-segment.s7 { transform: rotate(270deg); }
+.wheel-segment.s7 span { transform: rotate(-270deg) translateY(-150px); }
+.wheel-segment.s8 { transform: rotate(315deg); }
+.wheel-segment.s8 span { transform: rotate(-315deg) translateY(-150px); }
+.wheel-pointer {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 22px solid transparent;
+    border-right: 22px solid transparent;
+    border-top: 44px solid rgba(52, 199, 89, 0.9);
+    filter: drop-shadow(0 6px 15px rgba(52, 199, 89, 0.5)) drop-shadow(0 0 12px rgba(52, 199, 89, 0.3));
+    z-index: 10;
+}
+.spin-result {
+    font-size: 32px;
+    font-weight: 900;
+    padding: 30px 50px;
+    border-radius: 24px;
+    background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(25, 35, 28, 0.25));
+    border: 1px solid rgba(52, 199, 89, 0.4);
+    backdrop-filter: blur(25px) saturate(200%);
+    -webkit-backdrop-filter: blur(25px) saturate(200%);
+    box-shadow: 0 15px 50px rgba(52, 199, 89, 0.25), 
+                inset 0 0 20px rgba(255, 255, 255, 0.1),
+                inset 0 0 15px rgba(52, 199, 89, 0.1);
+    color: white;
+    text-shadow: 0 0 20px rgba(52, 199, 89, 0.6), 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
 @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
 
 #history-list {

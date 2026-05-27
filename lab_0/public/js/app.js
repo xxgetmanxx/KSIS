@@ -12,9 +12,12 @@ let myBuyIn = 0;
 let opponentStack = 10000;
 let smallBlind = 100;
 let bigBlind = 200;
+let baseSmallBlind = 100;
+let baseBigBlind = 200;
 let currentTournamentRound = 1;
 let isTournamentMode = false;
 let isFriendGame = false;
+let isSpinMode = false;
 let lastActionWasRaise = false;
 let gameResultSaved = false;
 let turnTimeout = null;
@@ -548,14 +551,19 @@ function startGame() {
         gameResultSaved = false;
         showScreenByName("game");
     } else {
-        myStack = 10000;
+        if (!isSpinMode) {
+            myStack = 10000;
+            opponentStack = 10000;
+            smallBlind = baseSmallBlind;
+            bigBlind = baseBigBlind;
+        }
         myBuyIn = 0;
-        opponentStack = 10000;
         resetGame();
         showScreenByName("game");
         renderMyCards();
         renderOpponentCardsBacks();
         updateHandInfo();
+        isSpinMode = false;
     }
 }
 
@@ -886,7 +894,57 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnArena) btnArena.onclick = startGame;
 
     const btnSpin = document.getElementById("btn-spin");
-    if (btnSpin) btnSpin.onclick = startGame;
+    if (btnSpin) btnSpin.onclick = startSpinGame;
+
+    function startSpinGame() {
+        isSpinMode = true;
+        showScreenByName("game");
+        const spinOverlay = document.getElementById("spin-overlay");
+        spinOverlay.classList.remove("hidden");
+        document.getElementById("spin-result").classList.add("hidden");
+        
+        setTimeout(() => {
+            spinWheel();
+        }, 500);
+    }
+
+    function spinWheel() {
+        const wheel = document.getElementById("spin-wheel");
+        const segments = [1.5, 2, 2.5, 3, 1, 2.2, 2.8, 3.5];
+        const randomIndex = Math.floor(Math.random() * segments.length);
+        const multiplier = segments[randomIndex];
+        
+        const segmentAngle = 360 / segments.length;
+        // Rotate so the winning segment ends at the top (0 degrees) for readable text
+        const targetAngle = 360 * 5 + (randomIndex * segmentAngle);
+        
+        wheel.style.transition = "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
+        wheel.style.transform = `rotate(-${targetAngle}deg)`;
+        
+        setTimeout(() => {
+            applyMultiplier(multiplier);
+        }, 4200);
+    }
+
+    function applyMultiplier(multiplier) {
+        const spinResult = document.getElementById("spin-result");
+        const multiplierEl = document.getElementById("spin-multiplier");
+        multiplierEl.textContent = `x${multiplier}`;
+        spinResult.classList.remove("hidden");
+        
+        const baseBuyIn = 10000;
+        myStack = baseBuyIn * multiplier;
+        opponentStack = baseBuyIn * multiplier;
+        smallBlind = baseSmallBlind * multiplier;
+        bigBlind = baseBigBlind * multiplier;
+        
+        setTimeout(() => {
+            const spinOverlay = document.getElementById("spin-overlay");
+            spinOverlay.classList.add("hidden");
+            
+            startGame();
+        }, 2000);
+    }
 
     const btnTourney = document.getElementById("btn-tourney");
     if (btnTourney) {
