@@ -280,13 +280,16 @@ body::after {
 }
 
 .spin-anim { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(7, 15, 10, 0.95); backdrop-filter: blur(20px); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 40px; }
-.spin-wheel-container { 
+.spin-wheel-container {
     position: relative; 
     width: 380px; 
     height: 380px; 
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.2),
+                0 30px 80px rgba(52, 199, 89, 0.35);
 }
 .spin-wheel {
     width: 100%;
@@ -303,9 +306,7 @@ body::after {
         rgba(35, 50, 40, 0.85) 315deg 360deg
     );
     border: 3px solid rgba(52, 199, 89, 0.35);
-    box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.2),
-                0 30px 80px rgba(52, 199, 89, 0.35),
-                inset 0 0 60px rgba(255, 255, 255, 0.12),
+    box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.12),
                 inset 0 0 40px rgba(52, 199, 89, 0.15),
                 inset -20px -20px 50px rgba(0, 0, 0, 0.4);
     position: relative;
@@ -374,6 +375,11 @@ body::after {
                 inset 0 0 15px rgba(52, 199, 89, 0.1);
     color: white;
     text-shadow: 0 0 20px rgba(52, 199, 89, 0.6), 2px 2px 4px rgba(0, 0, 0, 0.8);
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.spin-result.result-hidden {
+    visibility: hidden;
+    opacity: 0;
 }
 @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
 

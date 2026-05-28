@@ -901,7 +901,9 @@ document.addEventListener("DOMContentLoaded", () => {
         showScreenByName("game");
         const spinOverlay = document.getElementById("spin-overlay");
         spinOverlay.classList.remove("hidden");
-        document.getElementById("spin-result").classList.add("hidden");
+        const spinResult = document.getElementById("spin-result");
+        spinResult.classList.add("result-hidden");
+        spinResult.classList.remove("hidden");
         
         setTimeout(() => {
             spinWheel();
@@ -932,7 +934,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const spinResult = document.getElementById("spin-result");
         const multiplierEl = document.getElementById("spin-multiplier");
         multiplierEl.textContent = `x${multiplier}`;
-        spinResult.classList.remove("hidden");
+        spinResult.classList.remove("result-hidden");
         
         const baseBuyIn = 10000;
         myStack = baseBuyIn * multiplier;
