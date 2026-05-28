@@ -910,13 +910,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function spinWheel() {
         const wheel = document.getElementById("spin-wheel");
-        const segments = [1.5, 2, 2.5, 3, 1, 2.2, 2.8, 3.5];
+        const segments = [1, 2, 1, 2, 1, 3, 1, 2];
         const randomIndex = Math.floor(Math.random() * segments.length);
         const multiplier = segments[randomIndex];
         
-        const segmentAngle = 360 / segments.length;
-        // Rotate so the winning segment ends at the top (0 degrees) for readable text
-        const targetAngle = 360 * 5 + (randomIndex * segmentAngle);
+        const segmentAngle = 360 / segments.length; // 45 градусов на сегмент
+        // Центр каждого сегмента = index * 45 + 22.5 градусов
+        const segmentCenter = randomIndex * segmentAngle + (segmentAngle / 2);
+        // Финальный угол = много полных оборотов + центр целевого сегмента
+        const targetAngle = 360 * 5 + segmentCenter;
         
         wheel.style.transition = "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
         wheel.style.transform = `rotate(-${targetAngle}deg)`;

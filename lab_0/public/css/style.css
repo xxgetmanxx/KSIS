@@ -329,6 +329,9 @@ body::after {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 1px;
 }
 .wheel-segment.s1 { transform: rotate(0deg); }
 .wheel-segment.s1 span { transform: rotate(0deg) translateY(-150px); }
