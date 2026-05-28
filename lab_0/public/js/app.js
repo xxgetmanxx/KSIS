@@ -18,6 +18,7 @@ let currentTournamentRound = 1;
 let isTournamentMode = false;
 let isFriendGame = false;
 let isSpinMode = false;
+let currentSpinRotation = 0;
 let lastActionWasRaise = false;
 let gameResultSaved = false;
 let turnTimeout = null;
@@ -917,13 +918,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const multiplier = segments[randomIndex];
         
         const segmentAngle = 360 / segments.length; // 45 градусов на сегмент
-        // Центр каждого сегмента = index * 45 + 22.5 градусов
         const segmentCenter = randomIndex * segmentAngle + (segmentAngle / 2);
-        // Финальный угол = много полных оборотов + центр целевого сегмента
-        const targetAngle = 360 * 5 + segmentCenter;
+        
+        const currentAngle = currentSpinRotation % 360;
+        const delta = ((segmentCenter - currentAngle + 360) % 360) || 360;
+        const spinAmount = 360 * 5 + delta;
+        currentSpinRotation += spinAmount;
         
         wheel.style.transition = "transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)";
-        wheel.style.transform = `rotate(-${targetAngle}deg)`;
+        wheel.style.transform = `rotate(-${currentSpinRotation}deg)`;
         
         setTimeout(() => {
             applyMultiplier(multiplier);
