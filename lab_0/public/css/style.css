@@ -332,11 +332,11 @@ body::after {
     background: transparent;
     color: white;
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 0.5px;
     text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 12px rgba(52, 199, 89, 0.4);
     white-space: nowrap;
-    transform: rotate(90deg);
+    transform: rotate(0deg);
 }
 /* 8 сегментов вокруг колеса - вращаются вместе с колесом */
 .wheel-segment.s1 { transform: translate(-50%, -50%) rotate(22.5deg) translateY(-140px); }
