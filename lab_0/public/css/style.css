@@ -327,9 +327,9 @@ body::after {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 16px;
-    border-radius: 16px;
-    background: rgba(0, 0, 0, 0.25);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
     color: white;
     font-size: 22px;
     font-weight: 700;
@@ -339,14 +339,14 @@ body::after {
     transform: rotate(90deg);
 }
 /* 8 сегментов вокруг колеса - вращаются вместе с колесом */
-.wheel-segment.s1 { transform: translate(-50%, -50%) rotate(0deg) translateY(-110px); }
-.wheel-segment.s2 { transform: translate(-50%, -50%) rotate(45deg) translateY(-110px); }
-.wheel-segment.s3 { transform: translate(-50%, -50%) rotate(90deg) translateY(-110px); }
-.wheel-segment.s4 { transform: translate(-50%, -50%) rotate(135deg) translateY(-110px); }
-.wheel-segment.s5 { transform: translate(-50%, -50%) rotate(180deg) translateY(-110px); }
-.wheel-segment.s6 { transform: translate(-50%, -50%) rotate(225deg) translateY(-110px); }
-.wheel-segment.s7 { transform: translate(-50%, -50%) rotate(270deg) translateY(-110px); }
-.wheel-segment.s8 { transform: translate(-50%, -50%) rotate(315deg) translateY(-110px); }
+.wheel-segment.s1 { transform: translate(-50%, -50%) rotate(0deg) translateY(-125px); }
+.wheel-segment.s2 { transform: translate(-50%, -50%) rotate(45deg) translateY(-125px); }
+.wheel-segment.s3 { transform: translate(-50%, -50%) rotate(90deg) translateY(-125px); }
+.wheel-segment.s4 { transform: translate(-50%, -50%) rotate(135deg) translateY(-125px); }
+.wheel-segment.s5 { transform: translate(-50%, -50%) rotate(180deg) translateY(-125px); }
+.wheel-segment.s6 { transform: translate(-50%, -50%) rotate(225deg) translateY(-125px); }
+.wheel-segment.s7 { transform: translate(-50%, -50%) rotate(270deg) translateY(-125px); }
+.wheel-segment.s8 { transform: translate(-50%, -50%) rotate(315deg) translateY(-125px); }
 .wheel-pointer {
     position: absolute;
     top: -22px;
