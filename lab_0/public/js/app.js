@@ -1233,3 +1233,5 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnBackFromSettings = document.getElementById("btn-back-from-settings");
     if (btnBackFromSettings) btnBackFromSettings.onclick = () => showScreenByName("menu");
 });
+
+// (removed previous dynamic spacing helper per request)
