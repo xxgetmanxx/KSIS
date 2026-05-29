@@ -288,7 +288,7 @@ body::after {
 }
 
 .poker-table-matte .communal-zone {
-    top: 53%;
+    top: 48%;
     transform: translate(-50%, -50%);
     flex-direction: column;
     align-items: center;
