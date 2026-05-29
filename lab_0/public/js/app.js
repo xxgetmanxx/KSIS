@@ -14,6 +14,7 @@ let smallBlind = 100;
 let bigBlind = 200;
 let baseSmallBlind = 100;
 let baseBigBlind = 200;
+let playerPaysSmallBlind = true;
 let currentTournamentRound = 1;
 let isTournamentMode = false;
 let isFriendGame = false;
@@ -575,9 +576,15 @@ function resetGame() {
     tableCards = [];
     gameResultSaved = false;
     currentPot = smallBlind + bigBlind;
-    myStack -= smallBlind;
-    myBuyIn = smallBlind;
-    opponentStack -= bigBlind;
+    if (playerPaysSmallBlind) {
+        myStack -= smallBlind;
+        myBuyIn = smallBlind;
+        opponentStack -= bigBlind;
+    } else {
+        myStack -= bigBlind;
+        myBuyIn = bigBlind;
+        opponentStack -= smallBlind;
+    }
     myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
     opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
     const potVal = document.getElementById("pot-val");
@@ -588,6 +595,7 @@ function resetGame() {
     updateHandInfo();
     renderMyCards();
     renderOpponentCardsBacks();
+    playerPaysSmallBlind = !playerPaysSmallBlind;
 }
 
 function renderOpponentCardsBacks() {
