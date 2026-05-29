@@ -242,6 +242,66 @@ body::after {
     transform: translateX(-50%);
     top: var(--fixed-gap);
     z-index: 2;
+    overflow: visible;
+}
+
+.poker-table-matte .table-zone {
+    position: absolute;
+    width: 100%;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.poker-table-matte .stack-display {
+    pointer-events: auto;
+}
+
+.poker-table-matte .opponent-stack-zone {
+    top: 16px;
+}
+
+.poker-table-matte .my-stack-zone {
+    bottom: 16px;
+}
+
+.poker-table-matte .opponent-hand,
+.poker-table-matte .player-hand,
+.poker-table-matte .communal-zone {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.poker-table-matte .opponent-hand {
+    top: 70px;
+    padding: 0 40px;
+}
+
+.poker-table-matte .player-hand {
+    bottom: 70px;
+    padding: 0 40px;
+}
+
+.poker-table-matte .communal-zone {
+    top: 53%;
+    transform: translate(-50%, -50%);
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+}
+
+.poker-table-matte .communal-cards {
+    min-height: 140px;
+    margin-top: 8px;
+}
+
+.poker-table-matte .table-center .pot-row {
+    pointer-events: auto;
 }
 
 #game-screen {

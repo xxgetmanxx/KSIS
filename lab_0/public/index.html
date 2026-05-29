@@ -116,25 +116,25 @@
         </div>
 
         <div class="poker-table-matte narrow-table">
-            <div style="margin-bottom: 5px; text-align:center;">
-                <div style="font-size:24px; font-weight:800; color:#FF3B30;">
+            <div class="table-zone opponent-stack-zone">
+                <div class="stack-display" style="font-size:24px; font-weight:800; color:#FF3B30;">
                     <span id="opponent-stack">10,000</span> 🪙
                 </div>
             </div>
-            <div id="opponent-cards-container" class="hand-container"></div>
+            <div id="opponent-cards-container" class="hand-container opponent-hand"></div>
 
-            <div class="table-center">
-                <div style="display:flex; justify-content:center; gap:20px; align-items:center; margin-bottom:15px;">
+            <div class="table-center communal-zone">
+                <div class="pot-row" style="display:flex; justify-content:center; gap:20px; align-items:center; margin-bottom:15px;">
                     <div style="font-size: 18px;">Банк: <span id="pot-val" style="color:var(--accent-success); font-weight:700;">0</span> 🪙</div>
                     <div id="turn-timer" style="font-size:24px; font-weight:800; color:#FFD60A; display:none;">10</div>
                 </div>
                 
-                <div id="communal-cards" class="hand-container"></div>
+                <div id="communal-cards" class="hand-container communal-cards"></div>
             </div>
 
-            <div id="my-cards-container" class="hand-container"></div>
-            <div style="text-align:center;">
-                <div style="font-size:24px; font-weight:800; color:var(--accent-success);">
+            <div id="my-cards-container" class="hand-container player-hand"></div>
+            <div class="table-zone my-stack-zone">
+                <div class="stack-display" style="font-size:24px; font-weight:800; color:var(--accent-success);">
                     <span id="my-stack">10,000</span> 🪙
                 </div>
             </div>
