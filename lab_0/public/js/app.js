@@ -106,13 +106,13 @@ async function loadUserStats() {
                     else if (modeName.includes('Spin')) icon = '🎰';
                     else if (modeName.includes('Турнир') || modeName.includes('tournament')) icon = '🏆';
                     
-                    const amount = Math.floor((game.pot || 0) / 2);
-                    const color = game.won ? 'var(--accent-success)' : '#FF3B30';
-                    const sign = game.won ? '+' : '-';
+                    const netAmount = game.net_amount !== undefined ? game.net_amount : Math.floor((game.won ? 1 : -1) * (game.pot || 0) / 2);
+                    const color = netAmount >= 0 ? 'var(--accent-success)' : '#FF3B30';
+                    const sign = netAmount >= 0 ? '+' : '';
                     
                     div.innerHTML = `
                         <div>${icon} ${modeName}</div>
-                        <div style="color:${color}; font-weight:700;">${sign}${formatNumber(amount)} 🪙</div>
+                        <div style="color:${color}; font-weight:700;">${sign}${formatNumber(netAmount)} 🪙</div>
                     `;
                     historyList.appendChild(div);
                 });
@@ -132,9 +132,6 @@ function doFold() {
     if (isFriendGame && ws) {
         ws.send(JSON.stringify({ action: "fold" }));
     } else {
-        if (!isTournamentMode) {
-            saveGameResult(false, currentPot, "Arena");
-        }
         opponentStack += currentPot;
         updateStacksDisplay();
         if (isTournamentMode) {
@@ -293,9 +290,6 @@ function autoCompleteAllPhases() {
                 setTimeout(() => resetGame(), 1500);
             }
             
-            if (!isTournamentMode) {
-                saveGameResult(result.won, currentPot, "Arena");
-            }
         }, 1500);
     }, 1000);
 }
@@ -471,9 +465,6 @@ function nextGamePhase() {
                 const opponentBestHand = getBestHand(opponentCards, tableCards);
                 const result = determineWinner(myBestHand, opponentBestHand);
                 
-                if (!isTournamentMode) {
-                    saveGameResult(result.won, currentPot, "Arena");
-                }
                 
                 if (result.won || result.tie) {
                     if (result.tie) {
@@ -970,16 +961,13 @@ async function loadStats() {
                     div.style.justifyContent = "space-between";
                     div.style.alignItems = "center";
                     
-                    let amount;
-                    if (game.won) {
-                        amount = "+" + Math.floor(game.pot / 2).toLocaleString();
-                    } else {
-                        amount = "-" + Math.floor(game.pot / 2).toLocaleString();
-                    }
+                    const netAmount = game.net_amount !== undefined ? game.net_amount : Math.floor((game.won ? 1 : -1) * (game.pot || 0) / 2);
+                    const amount = (netAmount >= 0 ? "+" : "") + netAmount.toLocaleString();
+                    const color = netAmount >= 0 ? 'var(--accent-success)' : '#FF3B30';
                     
                     div.innerHTML = `
                         <div>${game.mode || "Игра"}</div>
-                        <div style="color:${game.won ? 'var(--accent-success)' : '#FF3B30'}; font-weight:700;">${amount} 🪙</div>
+                        <div style="color:${color}; font-weight:700;">${amount} 🪙</div>
                     `;
                     historyList.appendChild(div);
                 });

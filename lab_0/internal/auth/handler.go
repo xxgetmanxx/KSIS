@@ -172,12 +172,13 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 		query = `SELECT COUNT(*) FROM games_history WHERE winner_id = $1`
 		database.DB.QueryRow(query, userID).Scan(&wins)
 
-		query = `SELECT COALESCE(MAX(pot / 2), 0) FROM games_history WHERE winner_id = $1`
+		query = `SELECT COALESCE(MAX(net_amount), 0) FROM games_history WHERE winner_id = $1`
 		database.DB.QueryRow(query, userID).Scan(&maxWin)
 
 		query = `SELECT 
 			CASE WHEN winner_id = $1 THEN true ELSE false END as won,
 			pot,
+			net_amount,
 			mode,
 			round,
 			played_at
@@ -191,15 +192,17 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 			for rows.Next() {
 				var won bool
 				var pot int
+			var netAmount int
 				var mode string
 				var round int
 				var playedAt string
-				rows.Scan(&won, &pot, &mode, &round, &playedAt)
+				rows.Scan(&won, &pot, &netAmount, &mode, &round, &playedAt)
 				history = append(history, map[string]interface{}{
-					"won":   won,
-					"pot":   pot,
-					"mode":  mode,
-					"round": round,
+					"won":        won,
+					"pot":        pot,
+				"net_amount": netAmount,
+					"mode":       mode,
+					"round":      round,
 				})
 			}
 		}
@@ -293,8 +296,8 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 		loserID = userID
 	}
 
-	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode, round) VALUES ($1, $2, $3, $4, $5)`
-	if _, err = tx.Exec(query, winnerID, loserID, pot, mode, round); err != nil {
+	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode, round, net_amount) VALUES ($1, $2, $3, $4, $5, $6)`
+	if _, err = tx.Exec(query, winnerID, loserID, pot, mode, round, netAmount); err != nil {
 		log.Println("Insert history error:", err)
 		tx.Rollback()
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка сохранения истории"})

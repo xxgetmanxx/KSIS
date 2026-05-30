@@ -41,11 +41,13 @@ func createTables() {
 			winner_id INT REFERENCES users(id),
 			loser_id INT REFERENCES users(id),
 			pot INT NOT NULL,
+			net_amount INT DEFAULT 0,
 			mode VARCHAR(50),
 			round INT DEFAULT 0,
 			played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`ALTER TABLE games_history ADD COLUMN IF NOT EXISTS round INT DEFAULT 0`,
+		`ALTER TABLE games_history ADD COLUMN IF NOT EXISTS net_amount INT DEFAULT 0`,
 	}
 
 	for _, q := range queries {
