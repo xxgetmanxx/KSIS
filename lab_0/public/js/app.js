@@ -721,6 +721,12 @@ function resetGame() {
     }
     currentPot = smallBlind + bigBlind;
 
+    const raiseInput = document.getElementById("raise-input");
+    if (raiseInput) {
+        raiseInput.value = bigBlind;
+        raiseInput.min = bigBlind;
+    }
+
     // В режиме турнира: при старте нового раунда игроки получают стек,
     // увеличенный в соответствии с текущим раунда турнира.
     if (isTournamentMode && (myStack <= 0 || opponentStack <= 0)) {
