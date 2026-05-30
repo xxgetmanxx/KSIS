@@ -156,14 +156,15 @@ function getMyCurrentBet() {
 function validateAndGetRaiseAmount() {
     const input = document.getElementById("raise-input");
     let raiseAmount = parseInt(input.value) || 500;
+    // treat input as increment (raise by)
     const myBet = getMyCurrentBet();
-    const maxTarget = myBet + myStack;
+    const maxIncrement = myStack;
     if (raiseAmount < bigBlind) {
         raiseAmount = bigBlind;
         input.value = raiseAmount;
     }
-    if (raiseAmount > maxTarget) {
-        raiseAmount = maxTarget;
+    if (raiseAmount > maxIncrement) {
+        raiseAmount = maxIncrement;
         input.value = raiseAmount;
     }
     return raiseAmount;
@@ -172,7 +173,8 @@ function validateAndGetRaiseAmount() {
 function doRaise() {
     if (isFriendGame && ws) {
         let raiseAmount = validateAndGetRaiseAmount();
-        const currentBet = window.lastGameState ? (window.lastGameState.last_bet || 0) : 0;
+        // input is increment: send total target bet = currentBet + raiseBy
+        const currentBet = getMyCurrentBet();
         ws.send(JSON.stringify({ action: "raise", amount: currentBet + raiseAmount }));
     } else {
         lastActionWasRaise = true;
