@@ -24,6 +24,7 @@ let isSpinMode = false;
 let currentSpinRotation = 0;
 let lastActionWasRaise = false;
 let gameResultSaved = false;
+let tournamentMatchResultSaved = false;
 let turnTimeout = null;
 let turnInterval = null;
 let turnSecondsLeft = 0;
@@ -131,7 +132,9 @@ function doFold() {
     if (isFriendGame && ws) {
         ws.send(JSON.stringify({ action: "fold" }));
     } else {
-        saveGameResult(false, currentPot, isTournamentMode ? "Турнир" : "Arena");
+        if (!isTournamentMode) {
+            saveGameResult(false, currentPot, "Arena");
+        }
         opponentStack += currentPot;
         updateStacksDisplay();
         if (isTournamentMode) {
@@ -290,7 +293,9 @@ function autoCompleteAllPhases() {
                 setTimeout(() => resetGame(), 1500);
             }
             
-            saveGameResult(result.won, currentPot, isTournamentMode ? "Турнир" : "Arena");
+            if (!isTournamentMode) {
+                saveGameResult(result.won, currentPot, "Arena");
+            }
         }, 1500);
     }, 1000);
 }
@@ -466,7 +471,9 @@ function nextGamePhase() {
                 const opponentBestHand = getBestHand(opponentCards, tableCards);
                 const result = determineWinner(myBestHand, opponentBestHand);
                 
-                saveGameResult(result.won, currentPot, isTournamentMode ? "Турнир" : "Arena");
+                if (!isTournamentMode) {
+                    saveGameResult(result.won, currentPot, "Arena");
+                }
                 
                 if (result.won || result.tie) {
                     if (result.tie) {
@@ -619,16 +626,20 @@ function updateLocalCheckButtonLabel() {
 function checkForTournamentWin() {
     if (myStack <= 0) {
         if (isTournamentMode) {
+            saveGameResult(false, currentPot, "Турнир", currentTournamentRound);
             showResultModal("Ты проиграл все фишки! Поражение в турнире!", "loss");
         } else {
+            saveGameResult(false, currentPot, "Arena");
             showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
         }
         return true;
     }
     if (opponentStack <= 0) {
         if (isTournamentMode) {
+            saveGameResult(true, currentPot, "Турнир", currentTournamentRound);
             showResultModal("Ты забрал все фишки соперника! Победа в раунде!", "win");
         } else {
+            saveGameResult(true, currentPot, "Arena");
             showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
         }
         return true;
@@ -707,10 +718,13 @@ function resetGame() {
     localGamePhase = "preflop";
     tableCards = [];
     gameResultSaved = false;
+    if (!isTournamentMode || (isTournamentMode && (myStack <= 0 || opponentStack <= 0))) {
+        tournamentMatchResultSaved = false;
+    }
     currentPot = smallBlind + bigBlind;
 
     // В режиме турнира: при старте нового раунда игроки получают стек,
-    // увеличенный в соответствии с текущим раундом турнира.
+    // увеличенный в соответствии с текущим раунда турнира.
     if (isTournamentMode && (myStack <= 0 || opponentStack <= 0)) {
         const startingStack = getTournamentStartingStack();
         myStack = startingStack;
@@ -875,10 +889,17 @@ async function sendRequest(url, data) {
     }
 }
 
-async function saveGameResult(won, pot, mode) {
-    console.log("saveGameResult called:", { won, pot, mode, currentUsername, gameResultSaved });
+async function saveGameResult(won, pot, mode, round = 0) {
+    console.log("saveGameResult called:", { won, pot, mode, round, currentUsername, gameResultSaved, tournamentMatchResultSaved });
     if (!currentUsername || gameResultSaved) return;
+    if (isTournamentMode && tournamentMatchResultSaved) return;
     gameResultSaved = true;
+    if (isTournamentMode) {
+        tournamentMatchResultSaved = true;
+    }
+    if (isTournamentMode && round === 0) {
+        round = currentTournamentRound;
+    }
     
     let netAmount;
     if (won) {
@@ -893,6 +914,9 @@ async function saveGameResult(won, pot, mode) {
     formData.append("won", won.toString());
     formData.append("pot", pot.toString());
     formData.append("mode", mode);
+    if (round > 0) {
+        formData.append("round", round.toString());
+    }
 
     try {
         console.log("Sending save-result request with:", formData);
