@@ -20,22 +20,22 @@ type PlayerState struct {
 }
 
 type GameRoom struct {
-	ID               string
-	Players          []*PlayerState
-	Deck             []game.Card
-	Table            []game.Card
-	Pot              int
-	CurrentTurn      int
-	GamePhase        string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
-	SmallBlind       int
-	BigBlind         int
-	CurrentBet       int
-	LastAction       string // "check", "call", "bet", "raise", "fold", ""
-	DealerPos        int
-	Timer            *time.Timer
-	TimerSeconds     int
-	Hub              *Hub // Reference to hub so timeout can send action
-	PlayersActed     int  // Number of players who have acted in current betting round
+	ID           string
+	Players      []*PlayerState
+	Deck         []game.Card
+	Table        []game.Card
+	Pot          int
+	CurrentTurn  int
+	GamePhase    string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
+	SmallBlind   int
+	BigBlind     int
+	CurrentBet   int
+	LastAction   string // "check", "call", "bet", "raise", "fold", ""
+	DealerPos    int
+	Timer        *time.Timer
+	TimerSeconds int
+	Hub          *Hub // Reference to hub so timeout can send action
+	PlayersActed int  // Number of players who have acted in current betting round
 
 }
 
@@ -233,9 +233,9 @@ func (room *GameRoom) NextPhase() {
 	// Reset bets for new phase and count players who are already all-in.
 	room.resetBettingRound()
 
-	// Postflop: first to act is BB
-	bbPos := (room.DealerPos + 1) % 2
-	room.CurrentTurn = bbPos
+	// Postflop: first to act is SB (dealer) in heads-up
+	sbPos := room.DealerPos
+	room.CurrentTurn = sbPos
 	room.Players[room.CurrentTurn].IsTurn = true
 
 	if room.shouldResolveRound() {
