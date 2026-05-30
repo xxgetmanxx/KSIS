@@ -52,6 +52,10 @@ func (h *Hub) startMatch(mode string, conn1, conn2 *websocket.Conn, smallBlind, 
 	var room *GameRoom
 	if mode == "FRIEND" {
 		room, _ = h.getPlayerRoom(conn1)
+		if room == nil {
+			return
+		}
+		room.Hub = h
 		for _, p := range room.Players {
 			p.Cards = []game.Card{}
 			p.Chips = 10000
@@ -181,7 +185,7 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			json.Unmarshal(message, &req)
 
 			hub.mu.Lock()
-			
+
 			if req["action"] == "search_arena" {
 				hub.ArenaQueue = append(hub.ArenaQueue, conn)
 			} else if req["action"] == "search_spin" {
@@ -225,7 +229,11 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 			} else if req["action"] == "check" {
 				room, playerIdx := hub.getPlayerRoom(conn)
 				if room != nil && playerIdx != -1 && room.Players[playerIdx].IsTurn {
-					room.PlayerCheck(playerIdx)
+					if room.Players[playerIdx].Bet == room.CurrentBet {
+						room.PlayerCheck(playerIdx)
+					} else {
+						room.PlayerCall(playerIdx)
+					}
 				}
 			} else if req["action"] == "call" {
 				room, playerIdx := hub.getPlayerRoom(conn)
@@ -251,7 +259,7 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 					room.PlayerRaise(playerIdx, amount)
 				}
 			}
-			
+
 			hub.mu.Unlock()
 		}
 	}()

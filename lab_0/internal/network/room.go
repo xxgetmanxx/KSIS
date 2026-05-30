@@ -125,9 +125,10 @@ func (room *GameRoom) StartGame() {
 	room.Players[bbPos].Chips -= room.BigBlind
 	room.Pot = room.SmallBlind + room.BigBlind
 
-	// Preflop: first to act is SB (dealer)
+	// Preflop: first to act is SB (dealer). BB has already posted a blind and is treated as having acted.
 	room.CurrentTurn = sbPos
 	room.Players[room.CurrentTurn].IsTurn = true
+	room.PlayersActed = 1
 
 	room.StartTimer()
 	room.Broadcast(room.GetGameState())

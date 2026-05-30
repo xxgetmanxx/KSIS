@@ -123,7 +123,19 @@ function doFold() {
 
 function doCheck() {
     if (isFriendGame && ws) {
-        ws.send(JSON.stringify({ action: "call" }));
+        let callAmount = 0;
+        if (window.lastGameState && window.lastGameState.players) {
+            const playerIdx = window.lastGameState.players.findIndex(p => p.name === currentUsername);
+            if (playerIdx !== -1) {
+                const myBet = window.lastGameState.players[playerIdx].bet || 0;
+                callAmount = (window.lastGameState.last_bet || 0) - myBet;
+            }
+        }
+        if (callAmount > 0) {
+            ws.send(JSON.stringify({ action: "call" }));
+        } else {
+            ws.send(JSON.stringify({ action: "check" }));
+        }
     } else {
         lastActionWasRaise = false;
         nextGamePhase();
@@ -1124,8 +1136,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (currentCallAmount <= 0) {
-            console.log("  autoAction: sending CALL");
-            ws.send(JSON.stringify({ action: "call" }));
+            console.log("  autoAction: sending CHECK");
+            ws.send(JSON.stringify({ action: "check" }));
         } else {
             console.log("  autoAction: sending FOLD");
             ws.send(JSON.stringify({ action: "fold" }));
