@@ -1097,13 +1097,13 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("  isFriendGame:", isFriendGame);
         console.log("  ws exists:", !!ws);
         console.log("  window.lastGameState:", window.lastGameState);
-        
+
         if (!isFriendGame || !ws) {
             console.log("  autoAction cancelled: not friend game or no ws");
             return;
         }
         clearTurnTimers();
-        
+
         // Вычисляем callAmount прямо сейчас, чтобы быть уверенными
         let currentCallAmount = 0;
         let myBet = 0;
@@ -1117,10 +1117,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 myIsTurnNow = window.lastGameState.players[playerIdx].is_turn;
             }
         }
-        
-        console.log("  myIsTurnNow:", myIsTurnNow);
-        console.log("  currentCallAmount:", currentCallAmount);
-        
+
+        if (!myIsTurnNow) {
+            console.log("  autoAction cancelled: not your turn");
+            return;
+        }
+
         if (currentCallAmount <= 0) {
             console.log("  autoAction: sending CALL");
             ws.send(JSON.stringify({ action: "call" }));

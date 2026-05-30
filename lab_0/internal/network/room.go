@@ -9,33 +9,33 @@ import (
 )
 
 type PlayerState struct {
-	Conn    *websocket.Conn
-	Name    string
-	Cards   []game.Card
-	Chips   int
-	Bet     int
-	Folded  bool
-	IsTurn  bool
-	AllIn   bool
+	Conn   *websocket.Conn
+	Name   string
+	Cards  []game.Card
+	Chips  int
+	Bet    int
+	Folded bool
+	IsTurn bool
+	AllIn  bool
 }
 
 type GameRoom struct {
-	ID            string
-	Players       []*PlayerState
-	Deck          []game.Card
-	Table         []game.Card
-	Pot           int
-	CurrentTurn   int
-	GamePhase     string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
-	SmallBlind    int
-	BigBlind      int
-	CurrentBet    int
-	LastAction    string // "check", "call", "bet", "raise", "fold", ""
-	DealerPos     int
-	Timer         *time.Timer
-	TimerSeconds  int
-	Hub           *Hub // Reference to hub so timeout can send action
-	PlayersActed  int  // Number of players who have acted in current betting round
+	ID           string
+	Players      []*PlayerState
+	Deck         []game.Card
+	Table        []game.Card
+	Pot          int
+	CurrentTurn  int
+	GamePhase    string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
+	SmallBlind   int
+	BigBlind     int
+	CurrentBet   int
+	LastAction   string // "check", "call", "bet", "raise", "fold", ""
+	DealerPos    int
+	Timer        *time.Timer
+	TimerSeconds int
+	Hub          *Hub // Reference to hub so timeout can send action
+	PlayersActed int  // Number of players who have acted in current betting round
 }
 
 func (room *GameRoom) Broadcast(message interface{}) {
@@ -278,13 +278,19 @@ func (room *GameRoom) PlayerBet(playerIndex int, amount int) {
 
 func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 	room.StopTimer()
-	totalBet := room.CurrentBet + amount
+	// The amount is the target total bet after raising, not the additional increment.
+	totalBet := amount
 	raiseAmount := totalBet - room.Players[playerIndex].Bet
 
 	if raiseAmount > room.Players[playerIndex].Chips {
 		raiseAmount = room.Players[playerIndex].Chips
 		room.Players[playerIndex].AllIn = true
 		totalBet = room.Players[playerIndex].Bet + raiseAmount
+	}
+
+	if raiseAmount < 0 {
+		raiseAmount = 0
+		totalBet = room.Players[playerIndex].Bet
 	}
 
 	room.Players[playerIndex].Chips -= raiseAmount
