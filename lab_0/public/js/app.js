@@ -142,15 +142,28 @@ function doCheck() {
     }
 }
 
+function getMyCurrentBet() {
+    if (!window.lastGameState || !window.lastGameState.players) {
+        return 0;
+    }
+    const playerIdx = window.lastGameState.players.findIndex(p => p.name === currentUsername);
+    if (playerIdx === -1) {
+        return 0;
+    }
+    return window.lastGameState.players[playerIdx].bet || 0;
+}
+
 function validateAndGetRaiseAmount() {
     const input = document.getElementById("raise-input");
     let raiseAmount = parseInt(input.value) || 500;
+    const myBet = getMyCurrentBet();
+    const maxTarget = myBet + myStack;
     if (raiseAmount < bigBlind) {
         raiseAmount = bigBlind;
         input.value = raiseAmount;
     }
-    if (raiseAmount > myStack) {
-        raiseAmount = myStack;
+    if (raiseAmount > maxTarget) {
+        raiseAmount = maxTarget;
         input.value = raiseAmount;
     }
     return raiseAmount;
@@ -159,7 +172,8 @@ function validateAndGetRaiseAmount() {
 function doRaise() {
     if (isFriendGame && ws) {
         let raiseAmount = validateAndGetRaiseAmount();
-        ws.send(JSON.stringify({ action: "raise", amount: raiseAmount }));
+        const currentBet = window.lastGameState ? (window.lastGameState.last_bet || 0) : 0;
+        ws.send(JSON.stringify({ action: "raise", amount: currentBet + raiseAmount }));
     } else {
         lastActionWasRaise = true;
         let raiseAmount = validateAndGetRaiseAmount();
@@ -180,7 +194,8 @@ function doRaise() {
 
 function doAllIn() {
     if (isFriendGame && ws) {
-        ws.send(JSON.stringify({ action: "raise", amount: myStack }));
+        const totalBet = getMyCurrentBet() + myStack;
+        ws.send(JSON.stringify({ action: "raise", amount: totalBet }));
     } else {
         lastActionWasRaise = true;
         const raiseAmount = myStack;
