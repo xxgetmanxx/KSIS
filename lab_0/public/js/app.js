@@ -497,11 +497,9 @@ function updateTournamentBracket() {
     const final = document.getElementById("t-final");
     if (currentTournamentRound >= 2 && sf1) {
         sf1.classList.remove("empty-match");
-        sf1.textContent = currentUsername + " vs Bot_Pro";
     }
     if (currentTournamentRound >= 3 && final) {
         final.classList.remove("empty-match");
-        final.textContent = currentUsername + " vs Champion_Bot";
         final.style.borderColor = "var(--accent-primary)";
     }
 }
