@@ -47,16 +47,6 @@
 
             <div class="game-card glass-panel tournaments">
                 <h2 class="spin-title">Турнир</h2>
-                <div class="custom-dropdown">
-                    <div class="dropdown-selected" id="dropdown-selected">
-                        Средняя (Medium Bot)
-                    </div>
-                    <div class="dropdown-menu" id="dropdown-menu">
-                        <div class="dropdown-item" data-value="EASY">Низкая (Easy Bot)</div>
-                        <div class="dropdown-item active" data-value="MEDIUM">Средняя (Medium Bot)</div>
-                        <div class="dropdown-item" data-value="HARD">Высокая (Hard Bot Pro)</div>
-                    </div>
-                </div>
                 <button id="btn-tourney" class="btn-action" style="width:100%;">Запустить Турнир</button>
             </div>
 
@@ -73,10 +63,9 @@
 
     <div id="tournament-screen" class="screen hidden">
         <div class="bracket-container glass-panel">
-            <h2 style="margin-bottom: 30px; letter-spacing: -0.5px;">Сетка Турнира на 8 игроков</h2>
             <div class="bracket-grid">
                 <div class="bracket-column">
-                    <div class="match-box" id="t-qf1"><span id="t-p1">Ты</span> vs <span id="t-p2">Bot_1</span></div>
+                    <div class="match-box" id="t-qf1"><span id="t-p1">Игрок</span> vs <span id="t-p2">Bot_1</span></div>
                     <div class="match-box" id="t-qf2"><span>Bot_2</span> vs <span>Bot_3</span></div>
                     <div class="match-box" id="t-qf3"><span>Bot_4</span> vs <span>Bot_5</span></div>
                     <div class="match-box" id="t-qf4"><span>Bot_6</span> vs <span>Bot_7</span></div>
@@ -89,7 +78,7 @@
                     <div class="match-box empty-match" id="t-final" style="border-color: var(--accent-primary);">Финал</div>
                 </div>
             </div>
-            <button id="btn-start-tournament-match" class="btn-primary" style="margin-top:40px; padding: 14px 40px;">Начать четвертьфинал</button>
+            <button id="btn-start-tournament-match" class="btn-primary tournament-start-btn" style="margin:40px auto 0; padding: 14px 40px;">Начать</button>
         </div>
     </div>
 

@@ -1122,7 +1122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnTourney) {
         btnTourney.onclick = () => {
             const tP1 = document.getElementById("t-p1");
-            if (tP1) tP1.textContent = currentUsername + " [Ты]";
+            if (tP1) tP1.textContent = currentUsername;
             showScreenByName("tournament");
         };
     }
@@ -1145,39 +1145,6 @@ document.addEventListener("DOMContentLoaded", () => {
         showScreenByName("stats");
         await loadStats();
     };
-
-    let selectedDifficulty = "MEDIUM";
-    const dropdown = document.querySelector(".custom-dropdown");
-    const dropdownSelected = document.getElementById("dropdown-selected");
-    const dropdownMenu = document.getElementById("dropdown-menu");
-    const dropdownItems = document.querySelectorAll(".dropdown-item");
-
-    if (dropdownSelected && dropdownMenu) {
-        dropdownSelected.addEventListener("click", (e) => {
-            e.stopPropagation();
-            dropdown.classList.toggle("open");
-        });
-
-        dropdownItems.forEach((item) => {
-            item.addEventListener("click", (e) => {
-                e.stopPropagation();
-                const value = item.dataset.value;
-                const text = item.textContent;
-                
-                selectedDifficulty = value;
-                dropdownSelected.textContent = text;
-                
-                dropdownItems.forEach((i) => i.classList.remove("active"));
-                item.classList.add("active");
-                
-                dropdown.classList.remove("open");
-            });
-        });
-
-        document.addEventListener("click", () => {
-            dropdown.classList.remove("open");
-        });
-    }
 
     function generateFriendCode() {
         const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
