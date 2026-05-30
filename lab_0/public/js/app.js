@@ -33,6 +33,11 @@ function computeAnimationWaitMs(state) {
     return 2000;
 }
 
+function getTournamentStartingStack() {
+    const roundMultiplier = currentTournamentRound === 1 ? 1 : currentTournamentRound === 2 ? 2 : 4;
+    return 10000 * roundMultiplier;
+}
+
 function scheduleResultModal(fn, state) {
     if (resultModalShown) return;
     const waitMs = computeAnimationWaitMs(state);
@@ -704,10 +709,12 @@ function resetGame() {
     gameResultSaved = false;
     currentPot = smallBlind + bigBlind;
 
-    // В режиме турнира: оппонент начинает раунд с таким же стеком, как у игрока,
-    // и игрок всегда платит малый блайн (чтобы ты начинал первым, как в играх с ботом).
-    if (isTournamentMode) {
-        opponentStack = myStack;
+    // В режиме турнира: при старте нового раунда игроки получают стек,
+    // увеличенный в соответствии с текущим раундом турнира.
+    if (isTournamentMode && (myStack <= 0 || opponentStack <= 0)) {
+        const startingStack = getTournamentStartingStack();
+        myStack = startingStack;
+        opponentStack = startingStack;
         playerPaysSmallBlind = true;
     }
 
