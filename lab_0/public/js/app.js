@@ -653,6 +653,7 @@ function startGame() {
             smallBlind = baseSmallBlind;
             bigBlind = baseBigBlind;
         }
+        playerPaysSmallBlind = true;
         myBuyIn = 0;
         resetGame();
         showScreenByName("game");
@@ -691,6 +692,14 @@ function resetGame() {
     updateHandInfo();
     renderMyCards();
     renderOpponentCardsBacks();
+    const btnCheck = document.getElementById("btn-check");
+    const btnFold = document.getElementById("btn-fold");
+    const btnRaise = document.getElementById("btn-raise");
+    const btnAllIn = document.getElementById("btn-allin");
+    if (btnCheck) btnCheck.disabled = false;
+    if (btnFold) btnFold.disabled = false;
+    if (btnRaise) btnRaise.disabled = false;
+    if (btnAllIn) btnAllIn.disabled = false;
     playerPaysSmallBlind = !playerPaysSmallBlind;
 }
 
