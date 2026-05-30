@@ -705,6 +705,14 @@ function resetGame() {
     tableCards = [];
     gameResultSaved = false;
     currentPot = smallBlind + bigBlind;
+
+    // В режиме турнира: оппонент начинает раунд с таким же стеком, как у игрока,
+    // и игрок всегда платит малый блайн (чтобы ты начинал первым, как в играх с ботом).
+    if (isTournamentMode) {
+        opponentStack = myStack;
+        playerPaysSmallBlind = true;
+    }
+
     isPlayerSB = playerPaysSmallBlind;
     if (playerPaysSmallBlind) {
         myStack -= smallBlind;
@@ -736,7 +744,10 @@ function resetGame() {
     if (btnFold) btnFold.disabled = false;
     if (btnRaise) btnRaise.disabled = false;
     if (btnAllIn) btnAllIn.disabled = false;
-    playerPaysSmallBlind = !playerPaysSmallBlind;
+    // При турнире не инвертируем порядок блайндов — игрок всегда начинает
+    if (!isTournamentMode) {
+        playerPaysSmallBlind = !playerPaysSmallBlind;
+    }
 }
 
 function renderOpponentCardsBacks() {
