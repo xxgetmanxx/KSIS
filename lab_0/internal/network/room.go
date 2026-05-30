@@ -20,22 +20,23 @@ type PlayerState struct {
 }
 
 type GameRoom struct {
-	ID           string
-	Players      []*PlayerState
-	Deck         []game.Card
-	Table        []game.Card
-	Pot          int
-	CurrentTurn  int
-	GamePhase    string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
-	SmallBlind   int
-	BigBlind     int
-	CurrentBet   int
-	LastAction   string // "check", "call", "bet", "raise", "fold", ""
-	DealerPos    int
-	Timer        *time.Timer
-	TimerSeconds int
-	Hub          *Hub // Reference to hub so timeout can send action
-	PlayersActed int  // Number of players who have acted in current betting round
+	ID               string
+	Players          []*PlayerState
+	Deck             []game.Card
+	Table            []game.Card
+	Pot              int
+	CurrentTurn      int
+	GamePhase        string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
+	SmallBlind       int
+	BigBlind         int
+	CurrentBet       int
+	LastAction       string // "check", "call", "bet", "raise", "fold", ""
+	DealerPos        int
+	Timer            *time.Timer
+	TimerSeconds     int
+	Hub              *Hub // Reference to hub so timeout can send action
+	PlayersActed     int  // Number of players who have acted in current betting round
+
 }
 
 func (room *GameRoom) Broadcast(message interface{}) {
@@ -282,9 +283,8 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 
 	if activePlayers == 1 {
 		room.clearPlayerTurns()
-		room.dealRemainingCards()
 		room.Players[winnerIndex].Chips += room.Pot
-		room.GamePhase = "showdown"
+		room.GamePhase = "finished"
 		room.SwitchDealer()
 		room.Broadcast(room.GetGameState())
 
