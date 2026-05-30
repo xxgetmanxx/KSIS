@@ -25,6 +25,21 @@ let gameResultSaved = false;
 let turnTimeout = null;
 let turnInterval = null;
 let turnSecondsLeft = 0;
+let resultModalShown = false;
+
+function computeAnimationWaitMs(state) {
+    return 2000;
+}
+
+function scheduleResultModal(fn, state) {
+    if (resultModalShown) return;
+    const waitMs = computeAnimationWaitMs(state);
+    setTimeout(() => {
+        if (resultModalShown) return;
+        resultModalShown = true;
+        fn();
+    }, waitMs);
+}
 
 function createShuffledDeck() {
     const suits = ["♠", "♥", "♦", "♣"];
@@ -579,7 +594,21 @@ function checkForTournamentWin() {
 
 function startGame() {
     if (isFriendGame) {
+        clearTurnTimers();
         gameResultSaved = false;
+        lastActionWasRaise = false;
+        window.lastGameState = null;
+        smallBlind = 50;
+        bigBlind = 100;
+        myBuyIn = 0;
+
+        const raiseInput = document.getElementById("raise-input");
+        if (raiseInput) {
+            raiseInput.value = bigBlind;
+            raiseInput.min = bigBlind;
+        }
+
+        updateStacksDisplay();
         showScreenByName("game");
     } else {
         if (!isSpinMode) {
@@ -1099,11 +1128,11 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (data.type === "game_state") {
                 updateGameFromState(data);
             } else if (data.type === "game_over") {
-                if (data.won) {
-                    showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
-                } else {
-                    showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
-                }
+                // Defer showing match-end modal until animations complete
+                scheduleResultModal(() => {
+                    if (data.won) showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
+                    else showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
+                }, window.lastGameState || data);
             }
         };
     }
@@ -1207,6 +1236,11 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             renderOpponentCardsBacks();
         }
+
+        // Reset modal flag when new betting phases start
+        if (!(state.phase === "showdown" || state.phase === "finished")) {
+            resultModalShown = false;
+        }
         
         const communal = document.getElementById("communal-cards");
         if (communal) communal.innerHTML = "";
@@ -1249,8 +1283,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             turnSecondsLeft = 10;
             
+
+            // timer setup continues below
+
+            updateHandInfo();
             turnInterval = setInterval(() => {
-                turnSecondsLeft--;
+                turnSecondsLeft -= 1;
                 if (timerEl) timerEl.textContent = turnSecondsLeft;
                 if (turnSecondsLeft <= 0) {
                     clearInterval(turnInterval);
@@ -1262,7 +1300,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 autoAction();
             }, 10000);
         }
+        // Show result modal when showdown/finished phase arrives (only once)
+        if (isFriendGame && (state.phase === "showdown" || state.phase === "finished") && !resultModalShown) {
+            scheduleResultModal(() => {
+                const myIdx = state.players.findIndex(p => p.name === currentUsername);
+                const oppIdx = 1 - myIdx;
+                const myCardsFromState = state.players[myIdx].cards ? state.players[myIdx].cards.map(c => ({ suit: c.suit, value: c.value })) : [];
+                const oppCardsFromState = state.players[oppIdx].cards ? state.players[oppIdx].cards.map(c => ({ suit: c.suit, value: c.value })) : [];
+                const tableFromState = state.table_cards ? state.table_cards.map(c => ({ suit: c.suit, value: c.value })) : [];
+
+                const myBestHand = getBestHand(myCardsFromState, tableFromState);
+                const oppBestHand = getBestHand(oppCardsFromState, tableFromState);
+                const result = determineWinner(myBestHand, oppBestHand);
+
+                if (myStack <= 0) showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
+                else if (opponentStack <= 0) showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
+                else if (result.won) showResultModal("Ты выиграл раздачу!", "win");
+                else if (result.tie) showResultModal("Ничья! Банк разделён", "win");
+                else showResultModal("Ты проиграл раздачу!", "loss");
+            }, state);
+        }
         
+        // No pending game_over logic for friend games — friend mode follows server game_state.
+
         updateHandInfo();
     }
 
