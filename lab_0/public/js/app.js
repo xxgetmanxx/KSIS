@@ -15,6 +15,7 @@ let bigBlind = 200;
 let baseSmallBlind = 100;
 let baseBigBlind = 200;
 let playerPaysSmallBlind = true;
+let isPlayerSB = false;
 let currentTournamentRound = 1;
 let isTournamentMode = false;
 let isFriendGame = false;
@@ -152,8 +153,24 @@ function doCheck() {
             ws.send(JSON.stringify({ action: "check" }));
         }
     } else {
-        lastActionWasRaise = false;
-        nextGamePhase();
+        const callAmount = isPlayerSB && localGamePhase === "preflop" && myBuyIn === smallBlind ? Math.max(0, bigBlind - myBuyIn) : 0;
+        if (callAmount > 0) {
+            const actualCall = Math.min(callAmount, myStack);
+            myStack -= actualCall;
+            myBuyIn += actualCall;
+            currentPot += actualCall;
+            const potVal = document.getElementById("pot-val");
+            if (potVal) potVal.textContent = currentPot.toLocaleString();
+            updateStacksDisplay();
+            if (myStack <= 0 || opponentStack <= 0) {
+                autoCompleteAllPhases();
+            } else {
+                nextGamePhase();
+            }
+        } else {
+            lastActionWasRaise = false;
+            nextGamePhase();
+        }
     }
 }
 
@@ -422,23 +439,7 @@ function nextGamePhase() {
                     updateStacksDisplay();
                     if (!checkForTournamentWin()) {
                         setTimeout(() => {
-                            localGamePhase = "preflop";
-                            tableCards = [];
-                            fullDeck = createShuffledDeck();
-                            deckIndex = 0;
-                            currentPot = smallBlind + bigBlind;
-                            myStack -= smallBlind;
-                            opponentStack -= bigBlind;
-                            myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
-                            opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
-                            const potVal = document.getElementById("pot-val");
-                            if (potVal) potVal.textContent = currentPot.toLocaleString();
-                            const communal = document.getElementById("communal-cards");
-                            if (communal) communal.innerHTML = "";
-                            renderOpponentCardsBacks();
-                            renderMyCards();
-                            updateHandInfo();
-                            updateStacksDisplay();
+                            resetGame();
                         }, 2000);
                     }
                 } else {
@@ -446,23 +447,7 @@ function nextGamePhase() {
                     updateStacksDisplay();
                     if (!checkForTournamentWin()) {
                         setTimeout(() => {
-                            localGamePhase = "preflop";
-                            tableCards = [];
-                            fullDeck = createShuffledDeck();
-                            deckIndex = 0;
-                            currentPot = smallBlind + bigBlind;
-                            myStack -= smallBlind;
-                            opponentStack -= bigBlind;
-                            myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
-                            opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
-                            const potVal = document.getElementById("pot-val");
-                            if (potVal) potVal.textContent = currentPot.toLocaleString();
-                            const communal = document.getElementById("communal-cards");
-                            if (communal) communal.innerHTML = "";
-                            renderOpponentCardsBacks();
-                            renderMyCards();
-                            updateHandInfo();
-                            updateStacksDisplay();
+                            resetGame();
                         }, 2000);
                     }
                 }
@@ -578,6 +563,20 @@ function updateStacksDisplay() {
     const oppStackEl = document.getElementById("opponent-stack");
     if (myStackEl) myStackEl.textContent = myStack.toLocaleString();
     if (oppStackEl) oppStackEl.textContent = opponentStack.toLocaleString();
+    updateLocalCheckButtonLabel();
+}
+
+function updateLocalCheckButtonLabel() {
+    const btnCheck = document.getElementById("btn-check");
+    if (!btnCheck) return;
+
+    const callAmount = isPlayerSB && localGamePhase === "preflop" && myBuyIn === smallBlind ? Math.max(0, bigBlind - myBuyIn) : 0;
+    if (!isFriendGame && callAmount > 0) {
+        btnCheck.textContent = `Call ${callAmount}`;
+        return;
+    }
+
+    btnCheck.textContent = "Check";
 }
 
 function checkForTournamentWin() {
@@ -671,6 +670,7 @@ function resetGame() {
     tableCards = [];
     gameResultSaved = false;
     currentPot = smallBlind + bigBlind;
+    isPlayerSB = playerPaysSmallBlind;
     if (playerPaysSmallBlind) {
         myStack -= smallBlind;
         myBuyIn = smallBlind;
@@ -687,6 +687,7 @@ function resetGame() {
     const communal = document.getElementById("communal-cards");
     if (communal) communal.innerHTML = "";
     updateStacksDisplay();
+    updateLocalCheckButtonLabel();
     updateHandInfo();
     renderMyCards();
     renderOpponentCardsBacks();
@@ -996,6 +997,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnArena = document.getElementById("btn-arena");
     if (btnArena) btnArena.onclick = () => {
+        // Ensure any friend websocket is closed before starting local game
+        try { exitFriendMode(); } catch(_) {}
         isFriendGame = false;
         isTournamentMode = false;
         isSpinMode = false;
@@ -1004,6 +1007,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnSpin = document.getElementById("btn-spin");
     if (btnSpin) btnSpin.onclick = () => {
+        // Ensure any friend websocket is closed before starting local spin game
+        try { exitFriendMode(); } catch(_) {}
         isFriendGame = false;
         isTournamentMode = false;
         isSpinMode = true;
@@ -1080,6 +1085,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnStartTournament = document.getElementById("btn-start-tournament-match");
     if (btnStartTournament) {
         btnStartTournament.onclick = () => {
+            // Ensure any friend websocket is closed before starting tournament
+            try { exitFriendMode(); } catch(_) {}
             isFriendGame = false;
             isSpinMode = false;
             isTournamentMode = true;
