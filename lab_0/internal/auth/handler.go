@@ -31,6 +31,30 @@ func sendJSON(w http.ResponseWriter, status int, data interface{}) {
 	json.NewEncoder(w).Encode(data)
 }
 
+func tournamentTrophyDelta(won bool, round int) int {
+	if round < 1 {
+		round = 1
+	}
+	if won {
+		switch round {
+		case 3:
+			return 4
+		case 2:
+			return 2
+		default:
+			return 1
+		}
+	}
+	switch round {
+	case 3:
+		return -1
+	case 2:
+		return -2
+	default:
+		return -4
+	}
+}
+
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		sendJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Метод не поддерживается"})
@@ -155,6 +179,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 			CASE WHEN winner_id = $1 THEN true ELSE false END as won,
 			pot,
 			mode,
+			round,
 			played_at
 		FROM games_history 
 		WHERE winner_id = $1 OR loser_id = $1
@@ -167,12 +192,14 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 				var won bool
 				var pot int
 				var mode string
+				var round int
 				var playedAt string
-				rows.Scan(&won, &pot, &mode, &playedAt)
+				rows.Scan(&won, &pot, &mode, &round, &playedAt)
 				history = append(history, map[string]interface{}{
-					"won":  won,
-					"pot":  pot,
-					"mode": mode,
+					"won":   won,
+					"pot":   pot,
+					"mode":  mode,
+					"round": round,
 				})
 			}
 		}
@@ -213,15 +240,20 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 	wonStr := r.FormValue("won")
 	potStr := r.FormValue("pot")
 	mode := r.FormValue("mode")
+	roundStr := r.FormValue("round")
 
 	if login == "" {
 		sendJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Логин не указан"})
 		return
 	}
 
-	var netAmount, pot int
+	var netAmount, pot, round int
 	netAmount, _ = strconv.Atoi(netAmountStr)
 	pot, _ = strconv.Atoi(potStr)
+	round, _ = strconv.Atoi(roundStr)
+	if round < 1 {
+		round = 1
+	}
 	won := wonStr == "true"
 
 	tx, err := database.DB.Begin()
@@ -261,8 +293,8 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 		loserID = userID
 	}
 
-	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode) VALUES ($1, $2, $3, $4)`
-	if _, err = tx.Exec(query, winnerID, loserID, pot, mode); err != nil {
+	query = `INSERT INTO games_history (winner_id, loser_id, pot, mode, round) VALUES ($1, $2, $3, $4, $5)`
+	if _, err = tx.Exec(query, winnerID, loserID, pot, mode, round); err != nil {
 		log.Println("Insert history error:", err)
 		tx.Rollback()
 		sendJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Ошибка сохранения истории"})
@@ -277,10 +309,13 @@ func SaveGameResultHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if won && mode == "Турнир" {
-		query = `UPDATE users SET trophies = trophies + 1 WHERE id = $1`
-		if _, err = tx.Exec(query, userID); err != nil {
-			log.Println("Update trophies error:", err)
+	if mode == "Турнир" {
+		delta := tournamentTrophyDelta(won, round)
+		if delta != 0 {
+			query = `UPDATE users SET trophies = GREATEST(trophies + $1, 0) WHERE id = $2`
+			if _, err = tx.Exec(query, delta, userID); err != nil {
+				log.Println("Update trophies error:", err)
+			}
 		}
 	}
 
