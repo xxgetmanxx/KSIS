@@ -488,6 +488,8 @@ function updateTournamentBracket() {
 }
 
 function showResultModal(message, type) {
+    
+        resultModalShown = true;
     const modal = document.createElement("div");
     modal.style.cssText = `
         position:fixed; top:0; left:0; right:0; bottom:0;
@@ -550,14 +552,19 @@ function showResultModal(message, type) {
         cursor:pointer;
     `;
     menuBtn.textContent = "В Меню";
-    menuBtn.onclick = () => {
+    const menuHandler = (e) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        resultModalShown = false;
         modal.remove();
+        try { if (ws) { ws.onmessage = null; ws.onopen = null; ws.onerror = null; } } catch(_) {}
         exitFriendMode();
         isTournamentMode = false;
         currentTournamentRound = 1;
         resetGame();
         showScreenByName("menu");
     };
+    menuBtn.addEventListener('click', menuHandler);
+    menuBtn.style.pointerEvents = 'auto';
     btnContainer.appendChild(menuBtn);
     box.appendChild(icon);
     box.appendChild(text);
@@ -591,6 +598,35 @@ function checkForTournamentWin() {
         return true;
     }
     return false;
+}
+
+function clearTurnTimers() {
+    if (turnTimeout) {
+        clearTimeout(turnTimeout);
+        turnTimeout = null;
+    }
+    if (turnInterval) {
+        clearInterval(turnInterval);
+        turnInterval = null;
+    }
+    const timerEl = document.getElementById("turn-timer");
+    if (timerEl) timerEl.style.display = "none";
+}
+
+function exitFriendMode() {
+    if (ws) {
+        try {
+            ws.onmessage = null;
+            ws.onopen = null;
+            ws.onerror = null;
+            ws.close();
+        } catch (_) {}
+        ws = null;
+    }
+    isFriendGame = false;
+    resultModalShown = false;
+    window.lastGameState = null;
+    clearTurnTimers();
 }
 
 function startGame() {
@@ -1126,7 +1162,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function connectToWebSocket(code, isHost) {
         if (ws) {
-            ws.close();
+            try { ws.onmessage = null; ws.onopen = null; ws.onerror = null; ws.close(); } catch(_) {}
         }
         ws = new WebSocket(`ws://localhost:8080/ws?user=${currentUsername}`);
         ws.onopen = () => {
@@ -1152,31 +1188,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
-    function clearTurnTimers() {
-        if (turnTimeout) {
-            clearTimeout(turnTimeout);
-            turnTimeout = null;
-        }
-        if (turnInterval) {
-            clearInterval(turnInterval);
-            turnInterval = null;
-        }
-        const timerEl = document.getElementById("turn-timer");
-        if (timerEl) timerEl.style.display = "none";
-    }
-
-    function exitFriendMode() {
-        if (ws) {
-            try {
-                ws.close();
-            } catch (_) {}
-            ws = null;
-        }
-        isFriendGame = false;
-        resultModalShown = false;
-        window.lastGameState = null;
-        clearTurnTimers();
-    }
+    
 
     function autoAction() {
         console.log("=== autoAction START ===");
