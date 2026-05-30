@@ -10,6 +10,7 @@ let deckIndex = 0;
 let myStack = 10000;
 let myBuyIn = 0;
 let opponentStack = 10000;
+let opponentBuyIn = 0;
 let smallBlind = 100;
 let bigBlind = 200;
 let baseSmallBlind = 100;
@@ -211,10 +212,13 @@ function doRaise() {
     } else {
         lastActionWasRaise = true;
         let raiseAmount = validateAndGetRaiseAmount();
-        const botCallAmount = Math.min(raiseAmount, opponentStack);
+        const totalCommit = myBuyIn + raiseAmount;
+        const callAmount = Math.max(0, totalCommit - opponentBuyIn);
+        const botCallAmount = Math.min(callAmount, opponentStack);
         myStack -= raiseAmount;
         myBuyIn += raiseAmount;
         opponentStack -= botCallAmount;
+        opponentBuyIn += botCallAmount;
         currentPot += raiseAmount + botCallAmount;
         document.getElementById("pot-val").textContent = currentPot.toLocaleString();
         updateStacksDisplay();
@@ -233,10 +237,13 @@ function doAllIn() {
     } else {
         lastActionWasRaise = true;
         const raiseAmount = myStack;
-        const botCallAmount = Math.min(raiseAmount, opponentStack);
+        const totalCommit = myBuyIn + raiseAmount;
+        const callAmount = Math.max(0, totalCommit - opponentBuyIn);
+        const botCallAmount = Math.min(callAmount, opponentStack);
         myStack -= raiseAmount;
         myBuyIn += raiseAmount;
         opponentStack -= botCallAmount;
+        opponentBuyIn += botCallAmount;
         currentPot += raiseAmount + botCallAmount;
         document.getElementById("pot-val").textContent = currentPot.toLocaleString();
         updateStacksDisplay();
@@ -272,28 +279,55 @@ function autoCompleteAllPhases() {
             const opponentBestHand = getBestHand(opponentCards, tableCards);
             const result = determineWinner(myBestHand, opponentBestHand);
             
-            if (result.won || result.tie) {
-                if (result.tie) {
-                    myStack += Math.floor(currentPot / 2);
-                    opponentStack += Math.floor(currentPot / 2);
-                } else {
-                    myStack += currentPot;
-                }
-                updateStacksDisplay();
-                if (!checkForTournamentWin()) {
-                    setTimeout(() => resetGame(), 1500);
-                }
-            } else {
-                opponentStack += currentPot;
-                updateStacksDisplay();
-                if (!checkForTournamentWin()) {
-                    setTimeout(() => resetGame(), 1500);
-                }
+            distributeLocalPot(result);
+            updateStacksDisplay();
+            if (!checkForTournamentWin()) {
+                setTimeout(() => resetGame(), 1500);
             }
             
             saveGameResult(result.won, currentPot, isTournamentMode ? "Турнир" : "Arena");
         }, 1500);
     }, 1000);
+}
+
+function distributeLocalPot(result) {
+    const minBuyIn = Math.min(myBuyIn, opponentBuyIn);
+    const mainPot = minBuyIn * 2;
+    const sidePot = currentPot - mainPot;
+
+    if (result.tie) {
+        const splitMain = Math.floor(mainPot / 2);
+        myStack += splitMain;
+        opponentStack += splitMain;
+        if (sidePot > 0) {
+            if (myBuyIn > opponentBuyIn) {
+                myStack += sidePot;
+            } else if (opponentBuyIn > myBuyIn) {
+                opponentStack += sidePot;
+            } else {
+                const splitSide = Math.floor(sidePot / 2);
+                myStack += splitSide;
+                opponentStack += splitSide;
+            }
+        }
+        return;
+    }
+
+    if (result.won) {
+        if (myBuyIn < opponentBuyIn) {
+            myStack += mainPot;
+            opponentStack += sidePot;
+        } else {
+            myStack += currentPot;
+        }
+    } else {
+        if (opponentBuyIn < myBuyIn) {
+            opponentStack += mainPot;
+            myStack += sidePot;
+        } else {
+            opponentStack += currentPot;
+        }
+    }
 }
 
 function getCardRankValue(value) {
@@ -676,10 +710,12 @@ function resetGame() {
         myStack -= smallBlind;
         myBuyIn = smallBlind;
         opponentStack -= bigBlind;
+        opponentBuyIn = bigBlind;
     } else {
         myStack -= bigBlind;
         myBuyIn = bigBlind;
         opponentStack -= smallBlind;
+        opponentBuyIn = smallBlind;
     }
     myCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
     opponentCards = [fullDeck[deckIndex++], fullDeck[deckIndex++]];
