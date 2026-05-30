@@ -192,7 +192,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 			for rows.Next() {
 				var won bool
 				var pot int
-			var netAmount int
+				var netAmount int
 				var mode string
 				var round int
 				var playedAt string
@@ -200,7 +200,7 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 				history = append(history, map[string]interface{}{
 					"won":        won,
 					"pot":        pot,
-				"net_amount": netAmount,
+					"net_amount": netAmount,
 					"mode":       mode,
 					"round":      round,
 				})
@@ -224,10 +224,10 @@ func StatsHandler(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, http.StatusOK, SuccessResponse{
 		Success: true,
 		Data: map[string]interface{}{
-			"total_games":  totalGames,
-			"win_percent":  winPercent,
-			"max_win":      maxWin,
-			"history":      history,
+			"total_games": totalGames,
+			"win_percent": winPercent,
+			"max_win":     maxWin,
+			"history":     history,
 		},
 	})
 }

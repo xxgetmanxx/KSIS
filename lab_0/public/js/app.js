@@ -22,6 +22,7 @@ let isTournamentMode = false;
 let isFriendGame = false;
 let isSpinMode = false;
 let currentSpinRotation = 0;
+let matchStartingStack = 10000;
 let lastActionWasRaise = false;
 let gameResultSaved = false;
 let tournamentMatchResultSaved = false;
@@ -619,6 +620,9 @@ function checkForTournamentWin() {
         if (isTournamentMode) {
             saveGameResult(false, currentPot, "Турнир", currentTournamentRound);
             showResultModal("Ты проиграл все фишки! Поражение в турнире!", "loss");
+        } else if (isSpinMode) {
+            saveGameResult(false, currentPot, "Spin");
+            showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
         } else {
             saveGameResult(false, currentPot, "Arena");
             showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
@@ -629,6 +633,9 @@ function checkForTournamentWin() {
         if (isTournamentMode) {
             saveGameResult(true, currentPot, "Турнир", currentTournamentRound);
             showResultModal("Ты забрал все фишки соперника! Победа в раунде!", "win");
+        } else if (isSpinMode) {
+            saveGameResult(true, currentPot, "Spin");
+            showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
         } else {
             saveGameResult(true, currentPot, "Arena");
             showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
@@ -692,6 +699,7 @@ function startGame() {
             smallBlind = baseSmallBlind;
             bigBlind = baseBigBlind;
         }
+        matchStartingStack = myStack;
         playerPaysSmallBlind = true;
         myBuyIn = 0;
         resetGame();
@@ -699,7 +707,6 @@ function startGame() {
         renderMyCards();
         renderOpponentCardsBacks();
         updateHandInfo();
-        isSpinMode = false;
     }
 }
 
@@ -892,12 +899,7 @@ async function saveGameResult(won, pot, mode, round = 0) {
         round = currentTournamentRound;
     }
     
-    let netAmount;
-    if (won) {
-        netAmount = Math.floor(pot / 2);
-    } else {
-        netAmount = -myBuyIn;
-    }
+    const netAmount = myStack - matchStartingStack;
 
     const formData = new URLSearchParams();
     formData.append("login", currentUsername);
