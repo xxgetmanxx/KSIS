@@ -97,6 +97,66 @@ func (room *GameRoom) GetGameState() map[string]interface{} {
 	return map[string]interface{}{}
 }
 
+func (room *GameRoom) markZeroChipPlayersAllIn() {
+	for _, p := range room.Players {
+		if !p.Folded && p.Chips <= 0 {
+			p.AllIn = true
+		}
+	}
+}
+
+func (room *GameRoom) resetBettingRound() {
+	for _, p := range room.Players {
+		p.Bet = 0
+		p.IsTurn = false
+	}
+	room.CurrentBet = 0
+	room.LastAction = ""
+	room.PlayersActed = 0
+	for _, p := range room.Players {
+		if !p.Folded && p.AllIn {
+			room.PlayersActed++
+		}
+	}
+}
+
+func (room *GameRoom) shouldResolveRound() bool {
+	activeCount := 0
+	allMatched := true
+	allInCount := 0
+
+	for _, p := range room.Players {
+		if p.Folded {
+			continue
+		}
+		activeCount++
+		if !p.AllIn && p.Bet != room.CurrentBet {
+			allMatched = false
+		}
+		if p.AllIn {
+			allInCount++
+		}
+	}
+
+	if activeCount <= 1 {
+		return false
+	}
+
+	if !allMatched || room.PlayersActed < 2 {
+		return false
+	}
+
+	if allInCount >= 1 {
+		room.dealRemainingCards()
+		room.GamePhase = "showdown"
+		room.DetermineWinner()
+		return true
+	}
+
+	room.NextPhase()
+	return true
+}
+
 func (room *GameRoom) StartGame() {
 	room.Deck = game.NewDeck()
 	room.Table = []game.Card{}
@@ -125,10 +185,25 @@ func (room *GameRoom) StartGame() {
 	room.Players[bbPos].Chips -= room.BigBlind
 	room.Pot = room.SmallBlind + room.BigBlind
 
+	room.markZeroChipPlayersAllIn()
+
 	// Preflop: first to act is SB (dealer). BB has already posted a blind and is treated as having acted.
-	room.CurrentTurn = sbPos
+	if room.Players[sbPos].AllIn {
+		room.CurrentTurn = bbPos
+	} else {
+		room.CurrentTurn = sbPos
+	}
 	room.Players[room.CurrentTurn].IsTurn = true
-	room.PlayersActed = 1
+	room.PlayersActed = 0
+	for _, p := range room.Players {
+		if !p.Folded && p.AllIn {
+			room.PlayersActed++
+		}
+	}
+
+	if room.shouldResolveRound() {
+		return
+	}
 
 	room.StartTimer()
 	room.Broadcast(room.GetGameState())
@@ -153,22 +228,40 @@ func (room *GameRoom) NextPhase() {
 		return
 	}
 
-	// Reset bets for new phase
-	for _, p := range room.Players {
-		p.Bet = 0
-		p.IsTurn = false
-	}
-	room.CurrentBet = 0
-	room.LastAction = ""
-	room.PlayersActed = 0
+	room.markZeroChipPlayersAllIn()
+	// Reset bets for new phase and count players who are already all-in.
+	room.resetBettingRound()
 
 	// Postflop: first to act is BB
 	bbPos := (room.DealerPos + 1) % 2
 	room.CurrentTurn = bbPos
 	room.Players[room.CurrentTurn].IsTurn = true
 
+	if room.shouldResolveRound() {
+		return
+	}
+
 	room.StartTimer()
 	room.Broadcast(room.GetGameState())
+}
+
+func (room *GameRoom) dealRemainingCards() {
+	if room.GamePhase == "preflop" && len(room.Table) == 0 {
+		room.Table = append(room.Table, room.Deck[4:7]...)
+	}
+	if len(room.Table) < 4 {
+		room.Table = append(room.Table, room.Deck[7])
+	}
+	if len(room.Table) < 5 {
+		room.Table = append(room.Table, room.Deck[8])
+	}
+}
+
+func (room *GameRoom) clearPlayerTurns() {
+	for _, p := range room.Players {
+		p.IsTurn = false
+	}
+	room.CurrentTurn = -1
 }
 
 func (room *GameRoom) PlayerFold(playerIndex int) {
@@ -188,6 +281,8 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 	}
 
 	if activePlayers == 1 {
+		room.clearPlayerTurns()
+		room.dealRemainingCards()
 		room.Players[winnerIndex].Chips += room.Pot
 		room.GamePhase = "showdown"
 		room.SwitchDealer()
@@ -240,7 +335,7 @@ func (room *GameRoom) PlayerCheck(playerIndex int) {
 func (room *GameRoom) PlayerCall(playerIndex int) {
 	room.StopTimer()
 	callAmount := room.CurrentBet - room.Players[playerIndex].Bet
-	if callAmount > room.Players[playerIndex].Chips {
+	if callAmount >= room.Players[playerIndex].Chips {
 		callAmount = room.Players[playerIndex].Chips
 		room.Players[playerIndex].AllIn = true
 	}
@@ -248,6 +343,9 @@ func (room *GameRoom) PlayerCall(playerIndex int) {
 	room.Players[playerIndex].Chips -= callAmount
 	room.Players[playerIndex].Bet += callAmount
 	room.Pot += callAmount
+	if room.Players[playerIndex].Chips == 0 {
+		room.Players[playerIndex].AllIn = true
+	}
 	room.Players[playerIndex].IsTurn = false
 	room.PlayersActed++
 	room.LastAction = "call"
@@ -260,7 +358,7 @@ func (room *GameRoom) PlayerBet(playerIndex int, amount int) {
 	totalBet := amount
 	betAmount := totalBet - room.Players[playerIndex].Bet
 
-	if betAmount > room.Players[playerIndex].Chips {
+	if betAmount >= room.Players[playerIndex].Chips {
 		betAmount = room.Players[playerIndex].Chips
 		room.Players[playerIndex].AllIn = true
 		totalBet = room.Players[playerIndex].Bet + betAmount
@@ -269,6 +367,9 @@ func (room *GameRoom) PlayerBet(playerIndex int, amount int) {
 	room.Players[playerIndex].Chips -= betAmount
 	room.Players[playerIndex].Bet = totalBet
 	room.Pot += betAmount
+	if room.Players[playerIndex].Chips == 0 {
+		room.Players[playerIndex].AllIn = true
+	}
 	room.CurrentBet = totalBet
 	room.Players[playerIndex].IsTurn = false
 	room.PlayersActed = 1
@@ -283,7 +384,7 @@ func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 	totalBet := amount
 	raiseAmount := totalBet - room.Players[playerIndex].Bet
 
-	if raiseAmount > room.Players[playerIndex].Chips {
+	if raiseAmount >= room.Players[playerIndex].Chips {
 		raiseAmount = room.Players[playerIndex].Chips
 		room.Players[playerIndex].AllIn = true
 		totalBet = room.Players[playerIndex].Bet + raiseAmount
@@ -297,6 +398,9 @@ func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 	room.Players[playerIndex].Chips -= raiseAmount
 	room.Players[playerIndex].Bet = totalBet
 	room.Pot += raiseAmount
+	if room.Players[playerIndex].Chips == 0 {
+		room.Players[playerIndex].AllIn = true
+	}
 	room.CurrentBet = totalBet
 	room.Players[playerIndex].IsTurn = false
 	room.PlayersActed = 1
@@ -306,40 +410,9 @@ func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 }
 
 func (room *GameRoom) NextTurn() {
-	// Check if all active players have matched bets or are all-in AND both have acted
-	allMatched := true
-	activeCount := 0
-	allInCount := 0
-	for _, p := range room.Players {
-		if !p.Folded {
-			activeCount++
-			if p.Bet != room.CurrentBet && !p.AllIn {
-				allMatched = false
-			}
-			if p.AllIn {
-				allInCount++
-			}
-		}
-	}
+	room.markZeroChipPlayersAllIn()
 
-	if allMatched && activeCount > 1 && room.PlayersActed >= 2 {
-		// If any player is all-in, deal remaining cards immediately and go to showdown
-		if allInCount >= 1 {
-			// Deal remaining cards
-			if room.GamePhase == "preflop" {
-				room.Table = append(room.Table, room.Deck[4:7]...)
-			}
-			if len(room.Table) < 4 {
-				room.Table = append(room.Table, room.Deck[7])
-			}
-			if len(room.Table) < 5 {
-				room.Table = append(room.Table, room.Deck[8])
-			}
-			room.GamePhase = "showdown"
-			room.DetermineWinner()
-			return
-		}
-		room.NextPhase()
+	if room.shouldResolveRound() {
 		return
 	}
 
@@ -359,15 +432,7 @@ func (room *GameRoom) NextTurn() {
 			}
 			if !anyActive {
 				// Deal remaining cards and go to showdown
-				if room.GamePhase == "preflop" {
-					room.Table = append(room.Table, room.Deck[4:7]...)
-				}
-				if len(room.Table) < 4 {
-					room.Table = append(room.Table, room.Deck[7])
-				}
-				if len(room.Table) < 5 {
-					room.Table = append(room.Table, room.Deck[8])
-				}
+				room.dealRemainingCards()
 				room.GamePhase = "showdown"
 				room.DetermineWinner()
 				return
@@ -382,6 +447,7 @@ func (room *GameRoom) NextTurn() {
 
 func (room *GameRoom) DetermineWinner() {
 	room.StopTimer()
+	room.clearPlayerTurns()
 	var winners []int
 	bestRank := -1
 	var bestKickers []int
@@ -418,10 +484,44 @@ func (room *GameRoom) DetermineWinner() {
 		}
 	}
 
-	// Split pot
-	prizePerWinner := room.Pot / len(winners)
-	for _, idx := range winners {
-		room.Players[idx].Chips += prizePerWinner
+	if len(room.Players) == 2 && !room.Players[0].Folded && !room.Players[1].Folded {
+		p0Bet := room.Players[0].Bet
+		p1Bet := room.Players[1].Bet
+		minBet := p0Bet
+		if p1Bet < minBet {
+			minBet = p1Bet
+		}
+		mainPot := minBet * 2
+		sidePot := room.Pot - mainPot
+
+		if len(winners) == 1 {
+			winner := winners[0]
+			loser := 1 - winner
+			if room.Players[winner].Bet == minBet && room.Players[loser].Bet > minBet {
+				room.Players[winner].Chips += mainPot
+				room.Players[loser].Chips += sidePot
+			} else {
+				room.Players[winner].Chips += room.Pot
+			}
+		} else {
+			room.Players[0].Chips += mainPot / 2
+			room.Players[1].Chips += mainPot / 2
+			if sidePot > 0 {
+				if p0Bet > p1Bet {
+					room.Players[0].Chips += sidePot
+				} else if p1Bet > p0Bet {
+					room.Players[1].Chips += sidePot
+				} else {
+					room.Players[0].Chips += sidePot / 2
+					room.Players[1].Chips += sidePot / 2
+				}
+			}
+		}
+	} else {
+		prizePerWinner := room.Pot / len(winners)
+		for _, idx := range winners {
+			room.Players[idx].Chips += prizePerWinner
+		}
 	}
 
 	room.SwitchDealer()
