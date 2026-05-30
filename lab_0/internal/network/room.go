@@ -166,15 +166,17 @@ func (room *GameRoom) StartGame() {
 	room.CurrentBet = room.BigBlind
 	room.LastAction = ""
 	room.TimerSeconds = 20
-	room.PlayersActed = 0
 
 	for i, p := range room.Players {
-		p.Cards = room.Deck[i*2 : (i+1)*2]
+		// Copy the dealt cards to avoid referencing the underlying deck slice
+		p.Cards = append([]game.Card{}, room.Deck[i*2:(i+1)*2]...)
 		p.Bet = 0
 		p.Folded = false
 		p.AllIn = false
 		p.IsTurn = false
 	}
+
+	room.PlayersActed = 0
 
 	// Heads-Up: Dealer is SB, other is BB
 	sbPos := room.DealerPos
@@ -448,6 +450,7 @@ func (room *GameRoom) NextTurn() {
 func (room *GameRoom) DetermineWinner() {
 	room.StopTimer()
 	room.clearPlayerTurns()
+    
 	var winners []int
 	bestRank := -1
 	var bestKickers []int
