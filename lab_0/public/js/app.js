@@ -552,6 +552,7 @@ function showResultModal(message, type) {
     menuBtn.textContent = "В Меню";
     menuBtn.onclick = () => {
         modal.remove();
+        exitFriendMode();
         isTournamentMode = false;
         currentTournamentRound = 1;
         resetGame();
@@ -958,12 +959,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const btnArena = document.getElementById("btn-arena");
-    if (btnArena) btnArena.onclick = startGame;
+    if (btnArena) btnArena.onclick = () => {
+        isFriendGame = false;
+        isTournamentMode = false;
+        isSpinMode = false;
+        startGame();
+    };
 
     const btnSpin = document.getElementById("btn-spin");
-    if (btnSpin) btnSpin.onclick = startSpinGame;
+    if (btnSpin) btnSpin.onclick = () => {
+        isFriendGame = false;
+        isTournamentMode = false;
+        isSpinMode = true;
+        startSpinGame();
+    };
 
     function startSpinGame() {
+        isFriendGame = false;
+        isTournamentMode = false;
         isSpinMode = true;
         showScreenByName("game");
         const spinOverlay = document.getElementById("spin-overlay");
@@ -1031,6 +1044,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnStartTournament = document.getElementById("btn-start-tournament-match");
     if (btnStartTournament) {
         btnStartTournament.onclick = () => {
+            isFriendGame = false;
+            isSpinMode = false;
             isTournamentMode = true;
             currentTournamentRound = 1;
             startGame();
@@ -1148,6 +1163,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const timerEl = document.getElementById("turn-timer");
         if (timerEl) timerEl.style.display = "none";
+    }
+
+    function exitFriendMode() {
+        if (ws) {
+            try {
+                ws.close();
+            } catch (_) {}
+            ws = null;
+        }
+        isFriendGame = false;
+        resultModalShown = false;
+        window.lastGameState = null;
+        clearTurnTimers();
     }
 
     function autoAction() {
@@ -1299,26 +1327,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log("Timeout triggered, calling autoAction");
                 autoAction();
             }, 10000);
-        }
-        // Show result modal when showdown/finished phase arrives (only once)
-        if (isFriendGame && (state.phase === "showdown" || state.phase === "finished") && !resultModalShown) {
-            scheduleResultModal(() => {
-                const myIdx = state.players.findIndex(p => p.name === currentUsername);
-                const oppIdx = 1 - myIdx;
-                const myCardsFromState = state.players[myIdx].cards ? state.players[myIdx].cards.map(c => ({ suit: c.suit, value: c.value })) : [];
-                const oppCardsFromState = state.players[oppIdx].cards ? state.players[oppIdx].cards.map(c => ({ suit: c.suit, value: c.value })) : [];
-                const tableFromState = state.table_cards ? state.table_cards.map(c => ({ suit: c.suit, value: c.value })) : [];
-
-                const myBestHand = getBestHand(myCardsFromState, tableFromState);
-                const oppBestHand = getBestHand(oppCardsFromState, tableFromState);
-                const result = determineWinner(myBestHand, oppBestHand);
-
-                if (myStack <= 0) showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
-                else if (opponentStack <= 0) showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
-                else if (result.won) showResultModal("Ты выиграл раздачу!", "win");
-                else if (result.tie) showResultModal("Ничья! Банк разделён", "win");
-                else showResultModal("Ты проиграл раздачу!", "loss");
-            }, state);
         }
         
         // No pending game_over logic for friend games — friend mode follows server game_state.
