@@ -450,7 +450,7 @@ func (room *GameRoom) NextTurn() {
 func (room *GameRoom) DetermineWinner() {
 	room.StopTimer()
 	room.clearPlayerTurns()
-    
+
 	var winners []int
 	bestRank := -1
 	var bestKickers []int
