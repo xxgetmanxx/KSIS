@@ -178,12 +178,12 @@ func runServer() {
 func runClient() {
 	reader := bufio.NewReader(os.Stdin)
 
-	// Адрес сервера (куда подключаться)
+	
 	fmt.Print("[SERV] ")
 	serverAddr, _ := reader.ReadString('\n')
 	serverAddr = strings.TrimSpace(serverAddr)
 
-	// Свой IP (с какого адреса подключаться)
+	
 	fmt.Print("[ADDR] ")
 	clientAddr, _ := reader.ReadString('\n')
 	clientAddr = strings.TrimSpace(clientAddr)
@@ -192,7 +192,7 @@ func runClient() {
 	name, _ := reader.ReadString('\n')
 	name = strings.TrimSpace(name)
 
-	// Подключаемся с указанием своего локального адреса
+	
 	localAddr, err := net.ResolveTCPAddr("tcp", clientAddr)
 	if err != nil {
 		fmt.Printf("Error client address: %v\n", err)
@@ -214,7 +214,7 @@ func runClient() {
 
 	done := make(chan bool)
 
-	// Обработка Ctrl+C
+	
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -222,7 +222,7 @@ func runClient() {
 		conn.Write([]byte{MsgExit, 0})
 	}()
 
-	// Чтение ввода пользователя
+	
 	go func() {
 		r := bufio.NewReader(os.Stdin)
 		for {
@@ -238,7 +238,7 @@ func runClient() {
 		}
 	}()
 
-	// Чтение ответов от сервера
+	
 	go func() {
 		for {
 			_, data, err := readMessage(conn)

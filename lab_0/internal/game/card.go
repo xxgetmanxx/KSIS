@@ -6,9 +6,9 @@ import (
 )
 
 type Card struct {
-	Suit  string `json:"suit"`  // "♠", "♥", "♦", "♣"
-	Value string `json:"value"` // "2"-"10", "J", "Q", "K", "A"
-	Score int    `json:"score"` // 2-14 для вычислений силы карт
+	Suit  string `json:"suit"`  
+	Value string `json:"value"` 
+	Score int    `json:"score"` 
 }
 
 func NewDeck() []Card {

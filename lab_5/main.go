@@ -54,7 +54,7 @@ func main() {
 
 		if err != nil {
 
-			http.Error(w, "Forbidden", http.StatusForbidden) // "403"
+			http.Error(w, "Forbidden", http.StatusForbidden) 
 
 			return
 
@@ -62,7 +62,7 @@ func main() {
 
 		switch r.Method {
 
-		case http.MethodGet: // скачать - просмотр
+		case http.MethodGet: 
 
 			info, err := os.Stat(path)
 
@@ -70,11 +70,11 @@ func main() {
 
 				if os.IsNotExist(err) {
 
-					http.Error(w, "Not Found", http.StatusNotFound) // "404"
+					http.Error(w, "Not Found", http.StatusNotFound) 
 
 				} else {
 
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 				}
 
@@ -88,7 +88,7 @@ func main() {
 
 				if err != nil {
 
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 					return
 
@@ -112,11 +112,11 @@ func main() {
 
 			}
 
-			http.ServeFile(w, r, path) ////
+			http.ServeFile(w, r, path) 
 
 			log.Printf("[GET]: %s", r.URL.Path)
 
-		case http.MethodPut: // создать - обновить
+		case http.MethodPut: 
 
 			info, err := os.Stat(path)
 
@@ -124,7 +124,7 @@ func main() {
 
 			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 				return
 
@@ -136,7 +136,7 @@ func main() {
 
 				if err != nil {
 
-					http.Error(w, "Forbidden", http.StatusForbidden) // "403"
+					http.Error(w, "Forbidden", http.StatusForbidden) 
 
 					return
 
@@ -146,7 +146,7 @@ func main() {
 
 				if err != nil {
 
-					http.Error(w, "Not Found", http.StatusNotFound) // "404"
+					http.Error(w, "Not Found", http.StatusNotFound) 
 
 					return
 
@@ -158,7 +158,7 @@ func main() {
 
 				if err != nil {
 
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 					return
 
@@ -168,7 +168,7 @@ func main() {
 
 				if _, err := io.Copy(dst, src); err != nil {
 
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 					return
 				}
@@ -181,7 +181,7 @@ func main() {
 
 				if err != nil {
 
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 					return
 
@@ -191,7 +191,7 @@ func main() {
 
 				if _, err := io.Copy(f, r.Body); err != nil {
 
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "500"
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 					return
 
@@ -203,11 +203,11 @@ func main() {
 
 			if exists {
 
-				w.WriteHeader(http.StatusNoContent) // "204"
+				w.WriteHeader(http.StatusNoContent) 
 
 			} else {
 
-				w.WriteHeader(http.StatusCreated) // "201"
+				w.WriteHeader(http.StatusCreated) 
 
 			}
 
@@ -217,7 +217,7 @@ func main() {
 
 			if err != nil {
 
-				w.WriteHeader(http.StatusNotFound) // "404"
+				w.WriteHeader(http.StatusNotFound) 
 
 				return
 
@@ -247,7 +247,7 @@ func main() {
 
 			w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
 
-			w.WriteHeader(http.StatusOK) // "200"
+			w.WriteHeader(http.StatusOK) 
 
 			log.Printf("[HED]: %s (Size: %d)", r.URL.Path, size)
 
@@ -263,7 +263,7 @@ func main() {
 
 				}
 
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError) // "204"
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError) 
 
 				return
 
@@ -279,7 +279,7 @@ func main() {
 
 			log.Printf("[DEL]: %s", r.URL.Path)
 
-			w.WriteHeader(http.StatusNoContent) // 204
+			w.WriteHeader(http.StatusNoContent) 
 
 		default:
 

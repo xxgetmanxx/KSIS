@@ -15,7 +15,7 @@
           <mxGeometry x="800" y="70" width="1200" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ==================== БЛОК 1: ИНИЦИАЛИЗАЦИЯ СЕРВЕРА (ВЕРХ ЛЕВО) ==================== -->
+        
         <mxCell id="block1-title" parent="root-1" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=18;fillColor=#d9f7be;strokeColor=#000000;strokeWidth=2;" value="&lt;b&gt;БЛОК 1: ИНИЦИАЛИЗАЦИЯ СЕРВЕРНОЙ ЧАСТИ&lt;/b&gt;" vertex="1">
           <mxGeometry x="150" y="150" width="420" height="40" as="geometry" />
         </mxCell>
@@ -70,7 +70,7 @@
           <mxGeometry x="480" y="670" width="40" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ==================== БЛОК 2: АУТЕНТИФИКАЦИЯ (ВЕРХ ПРАВО) ==================== -->
+        
         <mxCell id="block2-title" parent="root-1" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=18;fillColor=#ffe6cc;strokeColor=#000000;strokeWidth=2;" value="&lt;b&gt;БЛОК 2: АУТЕНТИФИКАЦИЯ И АВТОРИЗАЦИЯ&lt;/b&gt;" vertex="1">
           <mxGeometry x="1650" y="150" width="450" height="40" as="geometry" />
         </mxCell>
@@ -100,7 +100,7 @@
           <mxGeometry x="1720" y="405" width="340" height="70" as="geometry" />
         </mxCell>
 
-        <!-- Ветка регистрации -->
+        
         <mxCell id="c10-reg" parent="root-1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=14;fillColor=#fff7e6;strokeColor=#000000;strokeWidth=1;" value="10" vertex="1">
           <mxGeometry x="1570" y="520" width="30" height="30" as="geometry" />
         </mxCell>
@@ -129,7 +129,7 @@
           <mxGeometry x="1620" y="715" width="230" height="50" as="geometry" />
         </mxCell>
 
-        <!-- Ветка входа -->
+        
         <mxCell id="c10-login" parent="root-1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=14;fillColor=#fff7e6;strokeColor=#000000;strokeWidth=1;" value="10" vertex="1">
           <mxGeometry x="1910" y="520" width="30" height="30" as="geometry" />
         </mxCell>
@@ -155,7 +155,7 @@
           <mxGeometry x="2110" y="730" width="40" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ==================== БЛОК 3: ГЛАВНОЕ МЕНЮ (НИЗ ЛЕВО) ==================== -->
+        
         <mxCell id="block3-title" parent="root-1" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=18;fillColor=#e6f7ff;strokeColor=#000000;strokeWidth=2;" value="&lt;b&gt;БЛОК 3: ГЛАВНОЕ МЕНЮ И ПОДКЛЮЧЕНИЕ&lt;/b&gt;" vertex="1">
           <mxGeometry x="150" y="1100" width="480" height="40" as="geometry" />
         </mxCell>
@@ -185,7 +185,7 @@
           <mxGeometry x="220" y="1355" width="340" height="70" as="geometry" />
         </mxCell>
 
-        <!-- 4 варианта выбора (горизонтально) -->
+        
         <mxCell id="c17-arena" parent="root-1" style="ellipse;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=14;fillColor=#fff7e6;strokeColor=#000000;strokeWidth=1;" value="17" vertex="1">
           <mxGeometry x="80" y="1470" width="30" height="30" as="geometry" />
         </mxCell>
@@ -225,7 +225,7 @@
           <mxGeometry x="580" y="1550" width="40" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ==================== БЛОК 4: ИГРОВОЙ ПРОЦЕСС (НИЗ ПРАВО) ==================== -->
+        
         <mxCell id="block4-title" parent="root-1" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=GOSTRUS Type A;fontSize=18;fillColor=#f6ffed;strokeColor=#000000;strokeWidth=2;" value="&lt;b&gt;БЛОК 4: ИГРОВОЙ ЦИКЛ&lt;/b&gt;" vertex="1">
           <mxGeometry x="1650" y="1100" width="460" height="40" as="geometry" />
         </mxCell>
@@ -343,8 +343,8 @@
           <mxGeometry x="1880" y="2270" width="140" height="60" as="geometry" />
         </mxCell>
 
-        <!-- ==================== СОЕДИНЕНИЯ ==================== -->
-        <!-- Блок 1 -->
+        
+        
         <mxCell id="e1" edge="1" parent="root-1" source="n1" target="b1" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;">
           <mxGeometry relative="1" as="geometry"><mxPoint x="370" y="280" as="sourcePoint"/><mxPoint x="370" y="295" as="targetPoint"/></mxGeometry>
         </mxCell>
@@ -367,7 +367,7 @@
           <mxGeometry relative="1" as="geometry"><mxPoint x="510" y="670" as="sourcePoint"/><mxPoint x="480" y="690" as="targetPoint"/></mxGeometry>
         </mxCell>
 
-        <!-- Блок 2 -->
+        
         <mxCell id="e-link1-in" edge="1" parent="root-1" source="link1-in" target="b7" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;">
           <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="240" as="sourcePoint"/><mxPoint x="1880" y="275" as="targetPoint"/></mxGeometry>
         </mxCell>
@@ -405,7 +405,7 @@
           <mxGeometry relative="1" as="geometry"><mxPoint x="1850" y="765" as="sourcePoint"/><mxPoint x="2110" y="750" as="targetPoint"/></mxGeometry>
         </mxCell>
 
-        <!-- Блок 3 -->
+        
         <mxCell id="e-link2-in" edge="1" parent="root-1" source="link2-in" target="b14" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;">
           <mxGeometry relative="1" as="geometry"><mxPoint x="140" y="1190" as="sourcePoint"/><mxPoint x="380" y="1225" as="targetPoint"/></mxGeometry>
         </mxCell>
@@ -443,7 +443,7 @@
           <mxGeometry relative="1" as="geometry"><mxPoint x="610" y="1550" as="sourcePoint"/><mxPoint x="580" y="1570" as="targetPoint"/></mxGeometry>
         </mxCell>
 
-        <!-- Блок 4 -->
+        
         <mxCell id="e-link3-in" edge="1" parent="root-1" source="link3-in" target="b18" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;">
           <mxGeometry relative="1" as="geometry"><mxPoint x="1640" y="1190" as="sourcePoint"/><mxPoint x="1880" y="1225" as="targetPoint"/></mxGeometry>
         </mxCell>
@@ -493,7 +493,7 @@
           <mxGeometry relative="1" as="geometry"><mxPoint x="1880" y="2255" as="sourcePoint"/><mxPoint x="1950" y="2270" as="targetPoint"/></mxGeometry>
         </mxCell>
 
-        <!-- Циклы -->
+        
         <mxCell id="loop1" edge="1" parent="root-1" source="d6" target="b18" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;strokeDasharray=5 5;" value="нет">
           <mxGeometry relative="1" as="geometry"><mxPoint x="1760" y="1320" as="sourcePoint"/><mxPoint x="1760" y="1225" as="targetPoint"/></mxGeometry>
         </mxCell>
@@ -516,7 +516,7 @@
           <mxGeometry relative="1" as="geometry"><mxPoint x="1950" y="665" as="sourcePoint"/><mxPoint x="1950" y="505" as="targetPoint"/></mxGeometry>
         </mxCell>
 
-        <!-- Штамп -->
+        
         <mxCell id="stamp-frame" parent="root-1" style="rounded=0;whiteSpace=wrap;html=1;strokeWidth=1;fillColor=none;fontFamily=GOSTRUS Type A;strokeColor=#000000;" value="" vertex="1">
           <mxGeometry height="200" width="750" x="2100" y="2080" as="geometry" />
         </mxCell>

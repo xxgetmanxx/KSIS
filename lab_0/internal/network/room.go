@@ -26,16 +26,16 @@ type GameRoom struct {
 	Table        []game.Card
 	Pot          int
 	CurrentTurn  int
-	GamePhase    string // "waiting", "preflop", "flop", "turn", "river", "showdown", "finished"
+	GamePhase    string 
 	SmallBlind   int
 	BigBlind     int
 	CurrentBet   int
-	LastAction   string // "check", "call", "bet", "raise", "fold", ""
+	LastAction   string 
 	DealerPos    int
 	Timer        *time.Timer
 	TimerSeconds int
-	Hub          *Hub // Reference to hub so timeout can send action
-	PlayersActed int  // Number of players who have acted in current betting round
+	Hub          *Hub 
+	PlayersActed int  
 
 }
 
@@ -168,7 +168,7 @@ func (room *GameRoom) StartGame() {
 	room.TimerSeconds = 20
 
 	for i, p := range room.Players {
-		// Copy the dealt cards to avoid referencing the underlying deck slice
+		
 		p.Cards = append([]game.Card{}, room.Deck[i*2:(i+1)*2]...)
 		p.Bet = 0
 		p.Folded = false
@@ -178,7 +178,7 @@ func (room *GameRoom) StartGame() {
 
 	room.PlayersActed = 0
 
-	// Heads-Up: Dealer is SB, other is BB
+	
 	sbPos := room.DealerPos
 	bbPos := (room.DealerPos + 1) % 2
 
@@ -190,7 +190,7 @@ func (room *GameRoom) StartGame() {
 
 	room.markZeroChipPlayersAllIn()
 
-	// Preflop: first to act is SB (dealer). BB has already posted a blind and is treated as having acted.
+	
 	if room.Players[sbPos].AllIn {
 		room.CurrentTurn = bbPos
 	} else {
@@ -232,10 +232,10 @@ func (room *GameRoom) NextPhase() {
 	}
 
 	room.markZeroChipPlayersAllIn()
-	// Reset bets for new phase and count players who are already all-in.
+	
 	room.resetBettingRound()
 
-	// Postflop: first to act is SB (dealer) in heads-up
+	
 	sbPos := room.DealerPos
 	room.CurrentTurn = sbPos
 	room.Players[room.CurrentTurn].IsTurn = true
@@ -273,7 +273,7 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 	room.Players[playerIndex].IsTurn = false
 	room.LastAction = "fold"
 
-	// Check if only one player remains
+	
 	activePlayers := 0
 	winnerIndex := 0
 	for i, p := range room.Players {
@@ -290,7 +290,7 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 		room.SwitchDealer()
 		room.Broadcast(room.GetGameState())
 
-		// Check if any player has 0 or less chips
+		
 		gameOver := false
 		var loserIndex int
 		for i, p := range room.Players {
@@ -302,7 +302,7 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 		}
 
 		if gameOver {
-			// Send game_over message to both players
+			
 			for i, p := range room.Players {
 				if p.Conn != nil {
 					won := i != loserIndex
@@ -316,7 +316,7 @@ func (room *GameRoom) PlayerFold(playerIndex int) {
 			return
 		}
 
-		// Start new round after a short delay
+		
 		time.AfterFunc(2*time.Second, func() {
 			room.StartGame()
 		})
@@ -382,7 +382,7 @@ func (room *GameRoom) PlayerBet(playerIndex int, amount int) {
 
 func (room *GameRoom) PlayerRaise(playerIndex int, amount int) {
 	room.StopTimer()
-	// The amount is the target total bet after raising, not the additional increment.
+	
 	totalBet := amount
 	raiseAmount := totalBet - room.Players[playerIndex].Bet
 
@@ -418,13 +418,13 @@ func (room *GameRoom) NextTurn() {
 		return
 	}
 
-	// Find next player (skip folded or all-in players)
+	
 	room.CurrentTurn = (room.CurrentTurn + 1) % 2
 	for room.Players[room.CurrentTurn].Folded || room.Players[room.CurrentTurn].AllIn {
 		room.CurrentTurn = (room.CurrentTurn + 1) % 2
-		// If we looped back and everyone is folded/all-in, check if we need to deal remaining cards
+		
 		if room.Players[room.CurrentTurn].Folded || room.Players[room.CurrentTurn].AllIn {
-			// Check if there are active players left
+			
 			anyActive := false
 			for _, p := range room.Players {
 				if !p.Folded && !p.AllIn {
@@ -433,7 +433,7 @@ func (room *GameRoom) NextTurn() {
 				}
 			}
 			if !anyActive {
-				// Deal remaining cards and go to showdown
+				
 				room.dealRemainingCards()
 				room.GamePhase = "showdown"
 				room.DetermineWinner()
@@ -531,7 +531,7 @@ func (room *GameRoom) DetermineWinner() {
 	room.GamePhase = "finished"
 	room.Broadcast(room.GetGameState())
 
-	// Check if any player has 0 or less chips
+	
 	gameOver := false
 	var loserIndex int
 	for i, p := range room.Players {
@@ -543,7 +543,7 @@ func (room *GameRoom) DetermineWinner() {
 	}
 
 	if gameOver {
-		// Send game_over message to both players
+		
 		for i, p := range room.Players {
 			if p.Conn != nil {
 				won := i != loserIndex
@@ -557,7 +557,7 @@ func (room *GameRoom) DetermineWinner() {
 		return
 	}
 
-	// Start new round after a short delay
+	
 	time.AfterFunc(2*time.Second, func() {
 		room.StartGame()
 	})
@@ -569,8 +569,8 @@ func (room *GameRoom) SwitchDealer() {
 
 func (room *GameRoom) StartTimer() {
 	room.Timer = time.AfterFunc(time.Duration(room.TimerSeconds)*time.Second, func() {
-		// When timeout happens, we need to hold the hub mutex
-		// So we'll signal the hub to process the timeout action
+		
+		
 		if room.Hub != nil {
 			room.Hub.processTimeout(room.ID)
 		}
@@ -590,7 +590,7 @@ func (room *GameRoom) HandleTimeout() {
 		return
 	}
 
-	// Check if player can check
+	
 	if player.Bet == room.CurrentBet {
 		room.PlayerCheck(room.CurrentTurn)
 	} else {

@@ -12,11 +12,11 @@ import (
 )
 
 type ICMPHeader struct {
-  Type     uint8  // 1 байт 
-  Code     uint8  // 1 байт 
-  Checksum uint16 // 2 байт 
-  ID       uint16 // 2 байт 
-  Seq      uint16 // 2 байт 
+  Type     uint8  
+  Code     uint8  
+  Checksum uint16 
+  ID       uint16 
+  Seq      uint16 
 }
 
 func calculateChecksum(data []byte) uint16 {
@@ -163,7 +163,7 @@ func startTrace(destIP net.IP, useDNS bool, line string) {
 
         if useDNS && lastIP != "" {
 
-            names, _ := net.LookupAddr(lastIP) // Pointer Record - запрос
+            names, _ := net.LookupAddr(lastIP) 
 
             if len(names) > 0 { 
               
@@ -211,7 +211,7 @@ func sendEcho(fd int, destIP net.IP, id, seq uint16) (string, uint8, uint16, err
 
   copy(dst.Addr[:], destIP.To4()) 
 
-  // Вызов Sendto отправляет байты через дескриптор сокета fd
+  
   if err := syscall.Sendto(fd, buf.Bytes(), 0, dst); err != nil {
 
     return "", 0, 0, err
@@ -220,7 +220,7 @@ func sendEcho(fd int, destIP net.IP, id, seq uint16) (string, uint8, uint16, err
 
   reply := make([]byte, 1500)
 
-  // Ждем получения данных
+  
   _, from, err := syscall.Recvfrom(fd, reply, 0)
 
   if err != nil {
@@ -229,7 +229,7 @@ func sendEcho(fd int, destIP net.IP, id, seq uint16) (string, uint8, uint16, err
 
   }
 
-  // Достаем IP адрес отправителя из структуры 'from'.
+  
   nodeIP := net.IP(from.(*syscall.SockaddrInet4).Addr[:]).String()
 
   return nodeIP, reply[20], finalChecksum, nil

@@ -81,7 +81,7 @@ func handleConnection(clientConn net.Conn) {
 
 	defer clientConn.Close()
 
-	// Шаг_1
+	
 
 	clientReader := bufio.NewReader(clientConn)
 
@@ -95,7 +95,7 @@ func handleConnection(clientConn net.Conn) {
 
 	reqLine = strings.TrimSpace(reqLine)
 
-	// Шаг_2
+	
 
 	parts := strings.Split(reqLine, " ")
 
@@ -115,7 +115,7 @@ func handleConnection(clientConn net.Conn) {
 
 	}
 
-	// Шаг_3
+	
 
 	parsedURL, err := url.Parse(rawURL)
 
@@ -137,7 +137,7 @@ func handleConnection(clientConn net.Conn) {
 
 	targetAddress := host + ":" + port
 
-	// Шаг_4
+	
 
 	if blacklist[host] {
 
@@ -149,7 +149,7 @@ func handleConnection(clientConn net.Conn) {
 
 	}
 
-	// Шаг_5
+	
 
 	path := parsedURL.Path
 
@@ -165,7 +165,7 @@ func handleConnection(clientConn net.Conn) {
 
 	}
 
-	// Шаг_6
+	
 
 	targetConn, err := net.Dial("tcp", targetAddress)
 
@@ -179,17 +179,17 @@ func handleConnection(clientConn net.Conn) {
 
 	defer targetConn.Close()
 
-	// Шаг_7
+	
 
 	newReqLine := fmt.Sprintf("%s %s %s\r\n", method, path, proto)
 
 	targetConn.Write([]byte(newReqLine))
 
-	// Шаг_8
+	
 
 	go io.Copy(targetConn, clientReader)
 
-	// Шаг_9
+	
 
 	targetReader := bufio.NewReader(targetConn)
 
@@ -219,7 +219,7 @@ func handleConnection(clientConn net.Conn) {
 
 	clientConn.Write([]byte(respLine))
 
-	// Шаг 10
+	
 
 	io.Copy(clientConn, targetReader)
 

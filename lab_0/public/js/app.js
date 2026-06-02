@@ -195,7 +195,7 @@ function getMyCurrentBet() {
 function validateAndGetRaiseAmount() {
     const input = document.getElementById("raise-input");
     let raiseAmount = parseInt(input.value) || 500;
-    // treat input as increment (raise by)
+    
     const myBet = getMyCurrentBet();
     const maxIncrement = myStack;
     if (raiseAmount < bigBlind) {
@@ -212,7 +212,7 @@ function validateAndGetRaiseAmount() {
 function doRaise() {
     if (isFriendGame && ws) {
         let raiseAmount = validateAndGetRaiseAmount();
-        // input is increment: send total target bet = currentBet + raiseBy
+        
         const currentBet = getMyCurrentBet();
         ws.send(JSON.stringify({ action: "raise", amount: currentBet + raiseAmount }));
     } else {
@@ -727,8 +727,8 @@ function resetGame() {
         raiseInput.min = bigBlind;
     }
 
-    // В режиме турнира: при старте нового раунда игроки получают стек,
-    // увеличенный в соответствии с текущим раунда турнира.
+    
+    
     if (isTournamentMode && (myStack <= 0 || opponentStack <= 0)) {
         const startingStack = getTournamentStartingStack();
         myStack = startingStack;
@@ -767,7 +767,7 @@ function resetGame() {
     if (btnFold) btnFold.disabled = false;
     if (btnRaise) btnRaise.disabled = false;
     if (btnAllIn) btnAllIn.disabled = false;
-    // При турнире не инвертируем порядок блайндов — игрок всегда начинает
+    
     if (!isTournamentMode) {
         playerPaysSmallBlind = !playerPaysSmallBlind;
     }
@@ -1078,7 +1078,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnArena = document.getElementById("btn-arena");
     if (btnArena) btnArena.onclick = () => {
-        // Ensure any friend websocket is closed before starting local game
+        
         try { exitFriendMode(); } catch(_) {}
         isFriendGame = false;
         isTournamentMode = false;
@@ -1088,7 +1088,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnSpin = document.getElementById("btn-spin");
     if (btnSpin) btnSpin.onclick = () => {
-        // Ensure any friend websocket is closed before starting local spin game
+        
         try { exitFriendMode(); } catch(_) {}
         isFriendGame = false;
         isTournamentMode = false;
@@ -1118,7 +1118,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const randomIndex = Math.floor(Math.random() * segments.length);
         const multiplier = segments[randomIndex];
         
-        const segmentAngle = 360 / segments.length; // 45 градусов на сегмент
+        const segmentAngle = 360 / segments.length; 
         const segmentCenter = randomIndex * segmentAngle + (segmentAngle / 2);
         
         const currentAngle = currentSpinRotation % 360;
@@ -1166,7 +1166,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnStartTournament = document.getElementById("btn-start-tournament-match");
     if (btnStartTournament) {
         btnStartTournament.onclick = () => {
-            // Ensure any friend websocket is closed before starting tournament
+            
             try { exitFriendMode(); } catch(_) {}
             isFriendGame = false;
             isSpinMode = false;
@@ -1234,7 +1234,7 @@ document.addEventListener("DOMContentLoaded", () => {
             } else if (data.type === "game_state") {
                 updateGameFromState(data);
             } else if (data.type === "game_over") {
-                // Defer showing match-end modal until animations complete
+                
                 scheduleResultModal(() => {
                     if (data.won) showResultModal("Ты забрал все фишки соперника! Игра окончена!", "win");
                     else showResultModal("Ты проиграл все фишки! Игра окончена!", "loss");
@@ -1257,7 +1257,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         clearTurnTimers();
 
-        // Вычисляем callAmount прямо сейчас, чтобы быть уверенными
+        
         let currentCallAmount = 0;
         let myBet = 0;
         let myIsTurnNow = false;
@@ -1332,7 +1332,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderOpponentCardsBacks();
         }
 
-        // Reset modal flag when new betting phases start
+        
         if (!(state.phase === "showdown" || state.phase === "finished")) {
             resultModalShown = false;
         }
@@ -1341,7 +1341,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (communal) communal.innerHTML = "";
         renderTableCards(false);
         
-        // Обновляем кнопки Check/Call
+        
         const btnCheck = document.getElementById("btn-check");
         if (btnCheck) {
             if (callAmount <= 0) {
@@ -1367,7 +1367,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btnAllIn.disabled = !myIsTurn || (state.phase === "finished");
         }
         
-        // Таймер на ход
+        
         clearTurnTimers();
         
         if (myIsTurn && isFriendGame && state.phase !== "finished") {
@@ -1379,7 +1379,7 @@ document.addEventListener("DOMContentLoaded", () => {
             turnSecondsLeft = 10;
             
 
-            // timer setup continues below
+            
 
             updateHandInfo();
             turnInterval = setInterval(() => {
@@ -1396,7 +1396,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }, 10000);
         }
         
-        // No pending game_over logic for friend games — friend mode follows server game_state.
+        
 
         updateHandInfo();
     }
@@ -1408,4 +1408,4 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnBackFromSettings) btnBackFromSettings.onclick = () => showScreenByName("menu");
 });
 
-// (removed previous dynamic spacing helper per request)
+

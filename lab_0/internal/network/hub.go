@@ -70,7 +70,7 @@ func (h *Hub) startMatch(mode string, conn1, conn2 *websocket.Conn, smallBlind, 
 			ID:         roomID,
 			SmallBlind: smallBlind,
 			BigBlind:   bigBlind,
-			Hub:        h, // Set hub reference for timeout handling
+			Hub:        h, 
 		}
 		room.Players = []*PlayerState{
 			{
@@ -113,7 +113,7 @@ func (h *Hub) startMatch(mode string, conn1, conn2 *websocket.Conn, smallBlind, 
 		multiplier = multipliers[rand.Intn(4)]
 	}
 
-	// Отправка game_start
+	
 	msg1, _ := json.Marshal(map[string]interface{}{
 		"type": "game_start", "room": room.ID, "mode": mode, "multiplier": multiplier,
 	})
@@ -124,7 +124,7 @@ func (h *Hub) startMatch(mode string, conn1, conn2 *websocket.Conn, smallBlind, 
 	room.Players[0].Conn.WriteMessage(websocket.TextMessage, msg1)
 	room.Players[1].Conn.WriteMessage(websocket.TextMessage, msg2)
 
-	// Запускаем игру и отправляем game_state
+	
 	room.StartGame()
 }
 
@@ -139,7 +139,7 @@ func (h *Hub) getPlayerRoom(conn *websocket.Conn) (*GameRoom, int) {
 	return nil, -1
 }
 
-// processTimeout handles timeout actions with proper mutex locking
+
 func (h *Hub) processTimeout(roomID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -149,12 +149,12 @@ func (h *Hub) processTimeout(roomID string) {
 		return
 	}
 
-	// Check if the room is still active
+	
 	if room.GamePhase == "finished" || room.GamePhase == "showdown" {
 		return
 	}
 
-	// Process the timeout action
+	
 	room.HandleTimeout()
 }
 

@@ -1,4 +1,4 @@
-/* DESIGN SYSTEM: PREMIUM GLASSMORPHISM (FROSTED GLASS) */
+
 :root {
     --bg-canvas: #070f0a;
     --glass-bg: rgba(25, 35, 28, 0.45);
@@ -320,7 +320,7 @@ body::after {
     justify-items: center;
 }
 
-/* Position controls visually with fixed bottom gap (doesn't change sizes) */
+
 .game-controls-below { display:flex; justify-content:center; gap:12px; align-items:center; flex-wrap:wrap; position: absolute; left: 50%; transform: translateX(-50%); bottom: var(--fixed-gap); z-index: 3; }
 
 .narrow-table {
@@ -425,7 +425,7 @@ body::after {
     white-space: nowrap;
     transform: rotate(0deg);
 }
-/* 8 сегментов вокруг колеса - вращаются вместе с колесом */
+
 .wheel-segment.s1 { transform: translate(-50%, -50%) rotate(22.5deg) translateY(-140px); }
 .wheel-segment.s2 { transform: translate(-50%, -50%) rotate(67.5deg) translateY(-140px); }
 .wheel-segment.s3 { transform: translate(-50%, -50%) rotate(112.5deg) translateY(-140px); }

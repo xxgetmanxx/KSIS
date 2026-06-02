@@ -2,7 +2,7 @@ package game
 
 import "sort"
 
-// HandRankings - рейтинг покерных комбинаций
+
 const (
 	HighCard = iota
 	OnePair
@@ -16,14 +16,14 @@ const (
 	RoyalFlush
 )
 
-// EvaluateHand оценивает силу руки и возвращает ранг и кикер-карты
+
 func EvaluateHand(hand []Card, table []Card) (int, []int) {
 	allCards := append(hand, table...)
 	if len(allCards) < 5 {
 		return HighCard, getSortedScores(allCards)
 	}
 
-	// Проверка комбинаций от сильнейшей к слабейшей
+	
 	if rank, kickers := checkRoyalFlush(allCards); rank != -1 {
 		return rank, kickers
 	}
@@ -55,7 +55,7 @@ func EvaluateHand(hand []Card, table []Card) (int, []int) {
 	return HighCard, getSortedScores(allCards)
 }
 
-// EvaluateWinner определяет победителя
+
 func EvaluateWinner(p1Hand, p2Hand, table []Card) int {
 	rank1, kickers1 := EvaluateHand(p1Hand, table)
 	rank2, kickers2 := EvaluateHand(p2Hand, table)
@@ -67,7 +67,7 @@ func EvaluateWinner(p1Hand, p2Hand, table []Card) int {
 		return 2
 	}
 
-	// Сравнение кикеров
+	
 	for i := 0; i < len(kickers1) && i < len(kickers2); i++ {
 		if kickers1[i] > kickers2[i] {
 			return 1
@@ -90,7 +90,7 @@ func getSortedScores(cards []Card) []int {
 
 func checkRoyalFlush(cards []Card) (int, []int) {
 	rank, kickers := checkStraightFlush(cards)
-	if rank != -1 && kickers[0] == 14 { // Ace
+	if rank != -1 && kickers[0] == 14 { 
 		return RoyalFlush, kickers
 	}
 	return -1, nil
@@ -164,7 +164,7 @@ func checkStraight(cards []Card) (int, []int) {
 		scores[c.Score] = true
 	}
 
-	// Проверка low straight (A-2-3-4-5)
+	
 	if scores[14] && scores[2] && scores[3] && scores[4] && scores[5] {
 		return Straight, []int{5}
 	}

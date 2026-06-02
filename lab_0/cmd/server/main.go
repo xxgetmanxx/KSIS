@@ -10,11 +10,11 @@ import (
 )
 
 func main() {
-	// Инициализация подключения к БД PostgreSQL
+	
 	database.InitDB("127.0.0.1", "5432", "postgres", "postgres", "postgres")
 	defer database.DB.Close()
 
-	// Инициализация сетевого WebSocket-хаба очередей
+	
 	hub := network.NewHub()
 	go hub.Run()
 
