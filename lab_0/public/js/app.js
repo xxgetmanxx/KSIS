@@ -1219,7 +1219,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (ws) {
             try { ws.onmessage = null; ws.onopen = null; ws.onerror = null; ws.close(); } catch(_) {}
         }
-        ws = new WebSocket(`ws://localhost:8080/ws?user=${currentUsername}`);
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws?user=${currentUsername}`);
         ws.onopen = () => {
             if (isHost) {
                 ws.send(JSON.stringify({ action: "create_friend", code: code }));
